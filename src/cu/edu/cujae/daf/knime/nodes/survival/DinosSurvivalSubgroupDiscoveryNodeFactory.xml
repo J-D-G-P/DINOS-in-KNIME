@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<knimeNode icon="./default.png" type="Learner" xmlns="http://knime.org/node/v2.8" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://knime.org/node/v2.10 http://knime.org/node/v2.10.xsd">
+    <name>DINOS Numeric Subgroup Discovery</name>
+    
+    <shortDescription>
+		Survival subgroup discovery with the DINOS algorithm
+    </shortDescription>
+    
+    <fullDescription>
+        <intro> 
+			Finds subgroups in the given data using the DINOS algorithm. Subgroup discovery is a data mining technique for extracting easily understandable "IF ELSE" rules with respect to a chosen target variable. Said rules are supposed to be easily understandable for the final user, distinguishable among themselves with the minimum possible amount of overlap, and taking all rules as a whole they should describe and cover as much of the data as possible.
+			<br/> <br/>
+			This specific node discovers subgroups in Survival analysis datasets. This is a specific branch of of statistics which uses specific techniques to analyze datasets with a particular kind of heterogeneous data with a measured time as target variable: The dataset contains both rows that have suffered an event of interest while others haven't (in this last case the data is said to be "censored").
+			<br/> <br/>
+			Papers describing the algorithm:
+			<br/>
+			TODO: This is just an example for an hyperlink
+			<br/>
+			TODO: Fix the category where the node appears
+			<br/>
+			<a href="https://www.microsoft.com/en-us/research/publication/fast-training-of-support-vector-machines-using-sequential-minimal-optimization/">
+			Fast Training of Support Vector Machines using Sequential Minimal 
+			Optimization</a>
+		</intro>
+
+s
+        
+        <tab name="General">
+        		Define overall settings for the algorithm
+            <option name="Class Column">The column to define as target for the subgroup discovery. If no column of the support types for this mode (Integer or Double) is found, the node refuses to execute or open the dialogue window </option>
+            <option name="Status/Censoring column">The column for indicating if the row is censored or not. Must be Integer, String or Boolean. Cannot be the same as the class column</option>
+            <option name="Censored Row Indication">Which value of the censoring column use to indicate censoring. If the value is outside the allowed ranges for the column, the node will issue an error on execution.</option>
+			<option name="Seed For Random Generation"> Define the seed for random generation, if in doubt leave the checkbox unmarked to always use a new seed in every execution. Notice that even with the same seed it is not guaranteed that execution results will be identical among rules.</option>
+        </tab>
+        
+        <tab name="Components">
+                The DINOS algorithm, as implemented in it's DAF library, is composed of several components for different sections of the algorithm which can be easily swapped to obtain different results. Still, for convenience there are default settings which will suffice for most users.
+                <br/> <br/>
+                For each available component there are is a full name and the respective key short name of it's flow variableL
+             <option name="Metric (metrics)">Method or formulas to get the quality of a subgroup, with quality defined as a numerical value to be maximized that the larger it is shows the subgroup is more different from the rest of the data</option>
+             <option name="Objectives (objs)">This uses the same methods for the metrics, but are instead used in the solution generator (see below)</option>
+             <option name="Class Selector (classSel)">Criteria to select the value of the target variable in each subgroup</option>
+             <option name="Feasibility Evaluator (feasOp)">Determine if a candidate subgroup is feasible</option>
+             <option name="Feasibility Operator (feasOp)">Feasibility criteria of an individual, which modifies previously defined candidate subgroups as unfeasible until it is marked as feasible</option>
+             <option name="Tuners (tuners)">Modifies candidate subgroup to a certain criteria after creation</option> 
+             <option name="Dominance (dom)">Dominance criteria between two candidate subgroups to use in the genetic algorithm, dominance determines which of two subgroups to be compared is the best</option>             
+             <option name="Redundancy (red)">Redundancy criteria between two candidate subgroups to use in the genetic algorithm, which determines if the subgroups to be compared cover the same instances i.e: their results overlap each other</option>             
+             <option name="External Population Updater (upd)">After each algorithm iteration, which filter to apply to determine if any of the newly generated subgroups is better than the ones previously defined as the best</option>             
+             <option name="Individual (ind)">An individual is an internal representation of a candidate subgroup, not final ones as presented to the user</option>            
+             <option name="Initial Population Generator (popGen)">At the beginning of each iteration, which method to use to create new candidate subgroups</option>
+             <option name="Solution Generator (solGen)">Method to use to determine the best candidates among the initial population</option>             
+             <option name="Crossover Operator (cross)">Crossover method for the genetic algorithm, which creates a new candidate subgroup from a list of other candidates</option>            
+             <option name="Mutate Operator (mut)">Mutation method for the genetic algorithm, which alters the given candidate based on a certain criteria</option>            
+		</tab>
+        
+        <tab name="Settings">
+        	<option name="Maximum amount of Evaluations:">The algorithm will make no more iterations if it does the specified amount of evaluations. Due to the iterative cycle of the genetic algorithm where it replaces subgroups previously defined as the best as it finds better ones the higher this number is, the more chances and time the algorithm will have to find better subgroups. However, making it larger will not magically find better subgroups for the given data, there being a limit depending on both the component configuration and the distribution of the data.</option>
+            <option name="Save Metrics of Interest">After each iteration, whether or not to save the results of metrics. Recommended to have it on.</option>
+            <option name="Att Amplitude Factor">Randomization option for the genetic algorithm</option>
+            <option name="Crossover Probability">Probability of using the designated crossover method for the genetic algorithm</option>
+            <option name="Dominance Overlap Threshold">If the value obtained by the overlap calculator is higher than the threshold, then the two given subgroups are considered viable to be compared for dominance</option>
+            <option name="H">Genetic Algorithm Variable</option>
+            <option name="Max Ind Replace">Maximum amount of candidate subgroups to substitute per algorithm trial</option>
+            <option name="Min Substitution Percent">Variable used to determine by the solution generator if the population have become stable</option>
+            <option name="Mutation Probability">For the genetic algorithm, if a random generated value is smaller than this then the specified mutation method is called</option>
+            <option name="Crossover Probability">For the genetic algorithm, if a random generated value is smaller than this then the specified crossover method is called</option>
+            <option name="Number of Objectives">Select a minimum for the amount of objectives to select in the "Components Tab"</option>
+            <option name="Redundancy Overlap Threshold">If the calculated overlap between two candidates is greater than this then they are considered redundant</option>
+            <option name="T">Genetic Algorithm Variable</option>
+        </tab>
+        
+    </fullDescription>
+    
+    <ports>
+        <inPort index="0" name="Input data table">The table from which to perform subgroup discovery</inPort>
+
+        <outPort index="0" name="Subgroups">Subgroups Description With Metrics</outPort>
+		<outPort index="1" name="Instances">Description of each instance and which subgroup it belongs</outPort>
+		<outPort index="2" name="Runtime information">Execution Information and Configuration variables</outPort>
+
+    </ports>    
+    <views>
+        <view index="0" name="name of first view">Description of first view...</view>
+        <!--view index="1" name="name of second view">Description of second view...</view-->
+    </views>
+</knimeNode>
