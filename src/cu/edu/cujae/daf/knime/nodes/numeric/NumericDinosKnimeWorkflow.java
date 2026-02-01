@@ -1,7 +1,7 @@
 package cu.edu.cujae.daf.knime.nodes.numeric;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +14,7 @@ import org.knime.core.data.DataTableSpec;
 import org.knime.core.data.DataValue;
 import org.knime.core.data.DoubleValue;
 import org.knime.core.data.IntValue;
+import org.knime.core.data.IntervalValue;
 import org.knime.core.data.def.BooleanCell;
 import org.knime.core.data.def.DefaultRow;
 import org.knime.core.data.def.DoubleCell;
@@ -30,12 +31,13 @@ import cu.edu.cujae.daf.codification.NumericProperty;
 import cu.edu.cujae.daf.codification.individual.Individual;
 import cu.edu.cujae.daf.context.dataset.Dataset;
 import cu.edu.cujae.daf.context.dataset.NumClassDataset;
-import cu.edu.cujae.daf.context.dataset.Dataset.ClassType;
-import cu.edu.cujae.daf.context.dataset.Dataset.NumericClass$;
 import cu.edu.cujae.daf.core.Algorithm;
+import cu.edu.cujae.daf.core.DiscoveryMode;
+import cu.edu.cujae.daf.core.NumericMode$;
 import cu.edu.cujae.daf.core.Subgroup;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeModel;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
+import cu.edu.cujae.daf.utils.SubgroupParser;
 
 /**
  * Contains all methods and constants for interfacing with the DAF library
@@ -50,6 +52,11 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		// The Singleton Instance
 	public static final GenericDinosKnimeWorkflow INSTANCE_NUMERIC = new NumericDinosKnimeWorkflow();
 	
+		// The Helper Instance
+	public static final DiscoveryMode MODE_NUMERIC = NumericMode$.MODULE$;
+	
+	public Class<? extends DataValue> getThenTargetType() {return IntervalValue.class;}
+	
 		// Variable to store the cells type supported by this as target
 		@SuppressWarnings("unchecked")
 	public static final Class<? extends DataValue>[] TARGETS_NUMERIC = new Class[] {IntValue.class , DoubleValue.class};
@@ -57,8 +64,12 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		/**
 		 * {@inheritDoc}
 		 */
+
+		/**
+		 * {@inheritDoc}
+		 */
 	@Override
-	public ClassType getClassType() { return NumericClass$.MODULE$;}
+	public DiscoveryMode getModeHelper() { return NumericMode$.MODULE$;}
 	
 		/**
 		 * {@inheritDoc}
@@ -68,51 +79,7 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 	
 		// Constructor, nothing to initialize
 	private NumericDinosKnimeWorkflow() {}
-	
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public Map< String , Map < String , String > >getExclusiveClasses() {
-		 Map< String , Map < String , String > > result = new HashMap<String, Map<String, String>>();
-		 
-		 LinkedHashMap<String, String> auxiliar = null;
-		 
-		 result.put( super.INFO_COMPONENTS[0]._1, null );
-		 result.put( super.INFO_COMPONENTS[1]._1, null );
-		 result.put( super.INFO_COMPONENTS[2]._1, null );
-		 
-		 auxiliar = new LinkedHashMap<String, String>();
-		 auxiliar.put("InterclassVariance", "Interclass Variance");
-		 auxiliar.put("MeanDifference", "Difference between dataset and subgroup mean");
-		 auxiliar.put("MedianDifference", "Difference between dataset and subgroup median");
-		 auxiliar.put("VarianceReduction", "Variance Reduction");
-		 result.put( super.INFO_COMPONENTS[3]._1, auxiliar );
-		 
-		 auxiliar = new LinkedHashMap<String, String>();
-		 auxiliar.put("FullRangeSelector", "Full Range Selector");
-		 auxiliar.put("InterquartileRangeSelector", "Interquartile Selector");
-		 auxiliar.put("MADRangeSelector", "Median Absolute Deviation Range Selector");
-		 result.put( super.INFO_COMPONENTS[4]._1 , auxiliar );
-		 
-		 result.put( super.INFO_COMPONENTS[5]._1 , null );
-		 result.put( super.INFO_COMPONENTS[6]._1 , null );
-		 result.put( super.INFO_COMPONENTS[7]._1 , null );
-		 	// Skip Subgroup Formatter
-		 result.put( super.INFO_COMPONENTS[9]._1 , null );
-		 result.put( super.INFO_COMPONENTS[10]._1 , null );
-		 result.put( super.INFO_COMPONENTS[11]._1 , null );
-		 result.put( super.INFO_COMPONENTS[12]._1, null );
-		 result.put( super.INFO_COMPONENTS[13]._1, null
-				 );
-		 result.values();
 
-		 return result;
-	}
-	
-		/**
-		 * {@inheritDoc}
-		 */
 	@Override
 	public Map< String , Map < String , String[] > > getExclusiveSettings() {
 
@@ -140,35 +107,7 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		return new LinkedHashMap<String, Map<String, String[]>>();
 	}
 	
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public Algorithm defaultAlgorithmSettings() {
-		return Algorithm.numericDinos();
-	}
 
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public scala.collection.immutable.Map<String, String[]> getDefaultClasses() {
-			return Algorithm.getNumericDefaultParameters();
-	}
-
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	protected Algorithm getDefaultAlgorithm() {
-		return Algorithm.numericDinos();
-	}
-
-		/**
-		 * This mode have true positives, coverage and metrics info
-		 * 
-		 * {@inheritDoc}
-		 */
 		@Override
 	public BufferedDataTable subgroupInformation(Algorithm dinos, Dataset dataset, ExecutionContext exec) {
 				// Store the column names and types
@@ -191,9 +130,9 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				// Description of Subgroup
 			cells.add(new StringCell( subgroupConditionsToString(dataset, currentSubgroup) ) );
 				// If Target is Included or Not
-			//var inOrNot = BooleanCell.TRUE;
-			//if (currentSubgroup.mainClass().positive() ) { inOrNot = BooleanCell.TRUE ; } else { inOrNot = BooleanCell.FALSE ; }
-			//cells.add( inOrNot );
+			var inOrNot = BooleanCell.TRUE;
+			if (currentSubgroup.mainClass().positive() ) { inOrNot = BooleanCell.TRUE ; } else { inOrNot = BooleanCell.FALSE ; }
+			cells.add( inOrNot );
 				// Limits of the Target Interval
 			NumericProperty target = (NumericProperty) currentSubgroup.mainClass();
 			cells.add( new IntervalCell(target.lowerBound() , target.upperBound() , true , true) );
@@ -217,7 +156,7 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			addMetricCellsToRow(cells, dinos, currentSubgroup);
 				// Create the row and add it
 			DataRow row = new DefaultRow( "Row" + count , cells);
-			System.out.print(row.toString());
+			//System.out.print(row.toString());
 			container.addRowToTable(row);
 		}
 				// Finally, return the table
@@ -235,8 +174,8 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			List<DataColumnSpec> outputSpecs = new ArrayList<>();
 				// Description of Subgroup
 			outputSpecs.add( new DataColumnSpecCreator("Subgroup", StringCell.TYPE).createSpec() );
-				// If Target is Included or Not
-//			outputSpecs.add( new DataColumnSpecCreator("Class (" + dataset.classAtt().name() +  ")", BooleanCell.TYPE).createSpec() );
+					// If Target is Included or Not
+			outputSpecs.add( new DataColumnSpecCreator("In", BooleanCell.TYPE).createSpec() );
 				// Target Variable
 			outputSpecs.add( new DataColumnSpecCreator("Class (" + dataset.classAtt().name() +  ")", IntervalCell.TYPE).createSpec() );
 				// True Positives
@@ -273,8 +212,12 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			 */
 		@Override
 		protected void addPrediction(List<DataCell> cells, Individual currentSubgroup, Dataset dataset) {
-			NumericProperty target = (NumericProperty) currentSubgroup.mainClass();
-			cells.add( new IntervalCell( target.lowerBound() , target.upperBound() , true , true) );
+			if(currentSubgroup == null)
+				super.addPrediction(cells, currentSubgroup, dataset);
+			else {
+				NumericProperty target = (NumericProperty) currentSubgroup.mainClass();
+				cells.add( new IntervalCell( target.lowerBound() , target.upperBound() , true , true) );
+			}
 		}
 
 		
@@ -297,6 +240,15 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			
 		}
 
-
+		@Override
+		protected String printThenCell( DataRow row , int inPosition, int thenPosition, HashSet<String> targets) {
+			
+			String inText = printInCell(inPosition, row, targets);
+			var cell = ( (IntervalCell) row.getCell(thenPosition) );
+			String thenText = SubgroupParser.interval(cell.getLeftBound(), cell.getRightBound());
+			
+			return
+					SubgroupParser.classThen() + SubgroupParser.whiteSpace() + inText + thenText;
+		}
 	
 }

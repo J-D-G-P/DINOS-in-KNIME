@@ -1,44 +1,21 @@
 package cu.edu.cujae.daf.knime.nodes.survival;
 
-import java.io.File;
-import java.io.IOException;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.IllegalFormatException;
-import java.util.List;
-
-import org.eclipse.swt.widgets.MessageBox;
-import org.knime.core.data.DataCell;
 import org.knime.core.data.DataColumnDomain;
 import org.knime.core.data.DataColumnSpec;
-import org.knime.core.data.DataColumnSpecCreator;
-import org.knime.core.data.DataRow;
 import org.knime.core.data.DataTableSpec;
 import org.knime.core.data.DataType;
 import org.knime.core.data.DataValue;
-import org.knime.core.data.container.CloseableRowIterator;
-import org.knime.core.data.def.DefaultRow;
-import org.knime.core.data.def.DoubleCell;
+import org.knime.core.data.def.IntCell;
 import org.knime.core.data.def.StringCell;
-import org.knime.core.node.BufferedDataContainer;
-import org.knime.core.node.BufferedDataTable;
-import org.knime.core.node.CanceledExecutionException;
-import org.knime.core.node.ExecutionContext;
-import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.InvalidSettingsException;
-import org.knime.core.node.NodeLogger;
-import org.knime.core.node.NodeModel;
 import org.knime.core.node.NodeSettingsRO;
 import org.knime.core.node.NodeSettingsWO;
 import org.knime.core.node.defaultnodesettings.SettingsModelString;
-import org.knime.core.node.defaultnodesettings.SettingsModelStringArray;
+import org.knime.core.node.port.PortType;
 
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeModel;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
-import cu.edu.cujae.daf.knime.nodes.numeric.NumericDinosKnimeWorkflow;
-import org.knime.core.data.def.IntCell;
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
 
 
 /**
@@ -54,11 +31,24 @@ public class DinosSurvivalSubgroupDiscoveryNodeModel extends GenericDinosKnimeMo
 	@Override
 	protected GenericDinosKnimeWorkflow getInstance() { return SurvivalDinosKnimeWorkflow.INSTANCE_SURVIVAL; }
 	
+	@Override
+	protected NODES_TYPES getMode() { return NODES_TYPES.DISCOVERY;	}
+	
 	protected SurvivalDinosKnimeWorkflow survivalWorkflow =  (SurvivalDinosKnimeWorkflow) SurvivalDinosKnimeWorkflow.INSTANCE_SURVIVAL;
 
 	private final SettingsModelString censor_column = survivalWorkflow.createCensorColumnModel();
 	
 	private final SettingsModelString censor_indication = survivalWorkflow.createCensorIndicationModel();
+	
+	protected DinosSurvivalSubgroupDiscoveryNodeModel() {
+	   	super();
+	}
+	 
+		// Constructor for default value
+	protected DinosSurvivalSubgroupDiscoveryNodeModel(final PortType[] inPortTypes, final PortType[] outPortTypes) {
+	 	super(inPortTypes , outPortTypes);
+	}
+
 	
 	@Override
 	protected String[] getCensorInfo() {

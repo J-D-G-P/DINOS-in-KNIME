@@ -2,6 +2,7 @@ package cu.edu.cujae.daf.knime.nodes.numeric;
 
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeDialog;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
 
 /**
  * Configuration interface for nominal subgroup discovery,
@@ -21,5 +22,8 @@ public class DinosNumericSubgroupDiscoveryNodeDialog extends GenericDinosKnimeDi
 	 */
 	@Override
 	protected GenericDinosKnimeWorkflow getInstance() { return NumericDinosKnimeWorkflow.INSTANCE_NUMERIC; }
+
+	@Override
+	protected NODES_TYPES getMode() { return NODES_TYPES.DISCOVERY; }
 	
 }

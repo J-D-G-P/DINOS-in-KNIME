@@ -1,25 +1,10 @@
 package cu.edu.cujae.daf.knime.nodes;
 
-import cu.edu.cujae.daf.context.Configuration;
-import cu.edu.cujae.daf.context.dataset.Attribute;
-import cu.edu.cujae.daf.context.dataset.Dataset;
-import cu.edu.cujae.daf.context.dataset.Instance;
-
-import cu.edu.cujae.daf.context.dataset.CENSORED$;
-import cu.edu.cujae.daf.context.dataset.INTEGER$;
-import cu.edu.cujae.daf.context.dataset.NOMINAL$;
-import cu.edu.cujae.daf.context.dataset.REAL$;
-import cu.edu.cujae.daf.context.dataset.SURVIVAL$;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Set;
 import java.util.LinkedHashMap;
-
-import scala.Option;
-import scala.jdk.CollectionConverters;
-import scala.None$;
+import java.util.LinkedList;
+import java.util.Set;
 
 import org.knime.core.data.BooleanValue;
 import org.knime.core.data.DataCell;
@@ -32,12 +17,23 @@ import org.knime.core.data.DoubleValue;
 import org.knime.core.data.IntValue;
 import org.knime.core.data.StringValue;
 import org.knime.core.data.container.CloseableRowIterator;
-import org.knime.core.data.def.DoubleCell;
 import org.knime.core.data.def.IntCell;
 import org.knime.core.data.def.StringCell;
 import org.knime.core.node.BufferedDataTable;
 import org.knime.core.node.ExecutionContext;
-import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
+
+import cu.edu.cujae.daf.context.Configuration;
+import cu.edu.cujae.daf.context.dataset.Attribute;
+import cu.edu.cujae.daf.context.dataset.CENSORED$;
+import cu.edu.cujae.daf.context.dataset.Dataset;
+import cu.edu.cujae.daf.context.dataset.INTEGER$;
+import cu.edu.cujae.daf.context.dataset.Instance;
+import cu.edu.cujae.daf.context.dataset.NOMINAL$;
+import cu.edu.cujae.daf.context.dataset.REAL$;
+import cu.edu.cujae.daf.context.dataset.SURVIVAL$;
+import scala.None$;
+import scala.Option;
+import scala.jdk.CollectionConverters;
 
 /**
  * A class for converting a KNIME table to the internal
@@ -124,16 +120,16 @@ public class KnimeTableToDinosDataset {
 			
 			if(survivalRelated == false) {
 					// Nominal tags? ("String")
-				if ( identifier.equals("org.knime.core.data.def.StringCell") )
+				if ( identifier.equals(GenericDinosKnimeWorkflow.ID_STRING) )
 				{	attributes[count] = new CandidateAttribute(columnNames[count] , NOMINAL$.MODULE$ , false, false, -1, 0 , 0,  setOfStringCellsToHashMapPlusIndex(currentColumnDomain.getValues() ), "") ;	survivalRelated = true;}	
 					// Nominal tags? ("Boolean")
-				else if ( identifier.equals("org.knime.core.data.def.BooleanCell") )
+				else if ( identifier.equals(GenericDinosKnimeWorkflow.ID_BOOL) )
 				{	attributes[count] = new CandidateAttribute(columnNames[count] , NOMINAL$.MODULE$ , false, false, -1, 0 , 0, BOOL_VALUES , "") ;	survivalRelated = true;}	
 				// Real value? ("Double")
-				else if(identifier.equals("org.knime.core.data.def.DoubleCell") )
+				else if(identifier.equals(GenericDinosKnimeWorkflow.ID_DOUBLE) )
 				{	attributes[count] = new CandidateAttribute(columnNames[count] , REAL$.MODULE$ , false, false, -1, ( (DoubleValue) currentColumnDomain.getLowerBound() ).getDoubleValue() , ( (DoubleValue) currentColumnDomain.getUpperBound() ).getDoubleValue(), null, "") ;	survivalRelated = true;}
 					// Integer value? ("Int")
-				else if ( identifier.equals("org.knime.core.data.def.IntCell") )
+				else if ( identifier.equals(GenericDinosKnimeWorkflow.ID_INT) )
 				{	attributes[count] = new CandidateAttribute(columnNames[count] , INTEGER$.MODULE$ , false, false, -1, ( (IntValue) currentColumnDomain.getLowerBound() ).getIntValue() , (double) ( (IntValue) currentColumnDomain.getUpperBound() ).getIntValue() , null, "") ;	survivalRelated = true;}
 					// Throw an error
 				else
@@ -216,8 +212,8 @@ public class KnimeTableToDinosDataset {
 			        	  }
 			        	  else if(attributeInfo.vtype == SURVIVAL$.MODULE$) {
 			        		  cellValue = ( (DoubleValue) cell ).getDoubleValue();
-			        		  if (cellValue < 0)
-			                      throw new RuntimeException("Instance at index " + countInstances + " have a negative survival value");
+			        		  if (cellValue <= 0)
+			                      throw new RuntimeException("Instance at index " + countInstances + " have a negative survival value of " + cellValue);
 			        	  }
 			        	  else if(attributeInfo.vtype == CENSORED$.MODULE$) {
 			        		  isInstanceCensored = attributeInfo.censor.equals( cell.toString() );

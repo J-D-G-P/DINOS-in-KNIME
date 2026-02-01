@@ -2,14 +2,13 @@ package cu.edu.cujae.daf.knime.nodes;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 
+import org.knime.core.data.DataColumnDomain;
 import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataTableSpec;
 import org.knime.core.data.DataValue;
-import org.knime.core.data.NominalValue;
 import org.knime.core.node.BufferedDataTable;
 import org.knime.core.node.CanceledExecutionException;
 import org.knime.core.node.ExecutionContext;
@@ -25,7 +24,11 @@ import org.knime.core.node.defaultnodesettings.SettingsModelSeed;
 import org.knime.core.node.defaultnodesettings.SettingsModelString;
 import org.knime.core.node.defaultnodesettings.SettingsModelStringArray;
 import org.knime.core.node.port.PortObject;
+import org.knime.core.node.port.PortType;
 import org.knime.core.node.workflow.VariableType;
+
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
+
 
 /**
  * Default configuration logic for all subgroup discovery nodes
@@ -44,6 +47,13 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
 	
 		/** Operations will be called to this */
 	protected final GenericDinosKnimeWorkflow workflow = getInstance();
+	
+		/** 
+		 * 1 - Subgroup Discovery
+		 * 2 - Dataset Extractor
+		 * 3 - Parser
+		 */
+	protected abstract NODES_TYPES getMode();
 
 		// Settings models, each one have both the actual variable
 		// and an overrideable setting to get them
@@ -53,10 +63,19 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
 	protected final SettingsModelString target_class = workflow.createTargetClass();
 	protected HashSet<String> targetToHashSet() {HashSet<String> set = new HashSet<String>() ; set.add(target_class.getStringValue()) ; return set; }
 	
+	protected final SettingsModelString desc_class = workflow.createDescClass();
+	protected String getDescClass() {return desc_class.getStringValue(); }
+	
+	protected final SettingsModelString in_class = workflow.createInClass();
+	protected String getInClass() {return in_class.getStringValue(); }
+	
+	protected final SettingsModelString then_class = workflow.createThenClass();
+	protected String getThenClass() {return then_class.getStringValue(); }
+	
 		// In case the nodes need it (right now, only survival mode)
 	protected String[] getCensorInfo() {return null;}
 
-		// Random Number Generator Seed and indication if to use a pre determined one or not
+		// Random Number Generator Seed and indication if to use a pre-determined one or not
 	protected final SettingsModelSeed generator_seed = workflow.createGeneratorSeed();
 	protected long seedToLong() {return generator_seed.getLongValue(); }
 
@@ -80,16 +99,19 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
 	protected final SettingsModelStringArray generalSettings = workflow.createSettingsModelForAvailableSettings();
 	protected String[] getSettingsArray() {return generalSettings.getStringArrayValue(); }
 
-		// Constructor
+		// Constructor for default value
     protected GenericDinosKnimeModel() {
-    
-    	super(		// By default should be one for input (a table)
-    				// and three for output (two tables and variables)
-        		GenericDinosKnimeWorkflow.PORT_INPUT_TYPES,
+    	
+    	super(
+        		GenericDinosKnimeWorkflow.PORT_INPUT_USUAL,
         		GenericDinosKnimeWorkflow.PORT_OUTPUT_TYPES
         		);
     }
     
+		// Constructor for differing amount of ports
+    protected GenericDinosKnimeModel(final PortType[] inPortTypes, final PortType[] outPortTypes) {
+    	super(inPortTypes , outPortTypes);
+    }
     	/* 
     	 * This is just a wrapper for "pushFlowVariable",
     	 * directly accessing the method gets an error since
@@ -114,9 +136,14 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
      * @throws Exception If the node execution fails for any reason (which should not)
      */
     @Override
-    protected PortObject[] execute(final PortObject[] inObjects, final ExecutionContext exec) throws Exception {
-
-        return workflow.execute(
+    final protected PortObject[] execute(final PortObject[] inObjects, final ExecutionContext exec) throws Exception {
+    	
+    	NODES_TYPES mode = getMode();
+    	
+    	PortObject[] answer = null;
+    	
+    	if(mode == NODES_TYPES.DISCOVERY)
+    		answer = workflow.executeDiscovery(
         			(BufferedDataTable) inObjects[workflow.PORT_INPUT_DATASET],
         			exec,
         			this,
@@ -129,6 +156,38 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
         			getClassesConfig(),
         			getSettingsArray()
         		);
+    	else if (mode == NODES_TYPES.EXTRACTOR)
+    		answer = workflow.executeExtract(
+        			(BufferedDataTable) inObjects[workflow.PORT_INPUT_DATASET],
+        			exec,
+        			this,
+        			targetToHashSet(),
+        			getCensorInfo(),
+        			getTrialsAmount(),
+        			seedToLong(),
+        			getUseDefaultOrNot(),
+        			getCollectItaration(),
+        			getClassesConfig(),
+        			getSettingsArray()
+        		);
+    	else if (mode == NODES_TYPES.PARSER)
+    		answer = workflow.executeParser(
+				  (BufferedDataTable) inObjects[workflow.PORT_INPUT_DATASET],
+				  (BufferedDataTable) inObjects[workflow.PORT_INPUT_DESCRIPTIONS],
+				  exec,
+				  this,
+				  targetToHashSet(),
+				  getDescClass(),
+				  getInClass(),
+				  getThenClass(),
+				  getCensorInfo(),
+				  getUseDefaultOrNot(),
+				  getClassesConfig(),
+				  getSettingsArray()
+				  );
+			 
+    	
+    	return answer;
     }
 
     /**
@@ -160,12 +219,33 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     protected DataTableSpec[] configure(final DataTableSpec[] inSpecs)
             throws InvalidSettingsException {
     	
+    	NODES_TYPES mode = getMode();
+    	
+    	if(mode == NODES_TYPES.DISCOVERY) {
+    		mode1Configure(inSpecs);
+    	}
+    	else if (mode == NODES_TYPES.EXTRACTOR) {
+        	//checkCompatibleValuesForModelAgainstColumns(inSpecs[workflow.PORT_INPUT_DATASET], workflow.getAceptedTargetTypes(), false, target_class);
+    	}
+    	else if (mode == NODES_TYPES.PARSER) {
+
+    	}
+    	
+        	// Due to metrics the columns at runtime are actually variable
+        return new DataTableSpec[]{null};
+    }
+    
+    protected void mode1Configure(final DataTableSpec[] inSpecs) 
+    	throws InvalidSettingsException {
+    	
     	DataTableSpec input = inSpecs[workflow.PORT_INPUT_DATASET];
         DataTableSpec inSpec = (DataTableSpec)inSpecs[workflow.PORT_INPUT_DATASET];
         Class<? extends DataValue>[] types = workflow.getAceptedTargetTypes();
-    	
+
     	if (input.getNumColumns() == 0)
     		throw new InvalidSettingsException(workflow.MESSAGE_EMPTYTABLE);
+    	
+       checkExistingDomainForStringColumns(inSpec);
     	
     	// Auto guessing logic adapted from decisionTreeLearnerNode
     	
@@ -190,7 +270,15 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
             throw new InvalidSettingsException( workflow.MESSAGE_CONFIGCLASSNOTFOUND + classifyColumn);
         }
         
-        if (classifyColumn == null) { // auto-guessing, adapted from TreeLearner
+        if (classifyColumn == null) {
+        	checkCompatibleValuesForModelAgainstColumns(inSpec, types, isValid, target_class);
+        }
+    	
+    }
+
+	private void checkCompatibleValuesForModelAgainstColumns(DataTableSpec inSpec, Class<? extends DataValue>[] types, boolean isValid, SettingsModelString model)
+			throws InvalidSettingsException {
+		// auto-guessing, adapted from TreeLearner
             assert !isValid : workflow.MESSAGE_NOCLASSVALIDCONFIG;
             // if no useful column is selected guess one
             // get the first useful one starting at the end of the table
@@ -200,9 +288,9 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
             		Class<? extends DataValue> currentType = types[countType];
             			// Set as default the last column available of the supported type
                     if (inSpec.getColumnSpec(countColumn).getType().isCompatible(currentType)) {
-                    	target_class.setStringValue(
+                    	model.setStringValue(
                                 inSpec.getColumnSpec(countColumn).getName());
-                        super.setWarningMessage( workflow.MESSAGE_GUESING + target_class.getStringValue());
+                    	addWarning( workflow.MESSAGE_GUESING + model.getStringValue());
                         	// The break only work on this inner cycle, so also stop the enclosing one by directly changing the counter
                         countColumn = -1;
                         break;
@@ -215,33 +303,80 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
             if (target_class.getStringValue() == null) {
                 throw new InvalidSettingsException(workflow.MESSAGE_NOCLASS);
             }
-        }
-    	
-        	// Due to metrics the columns at runtime are actually variable
-        return new DataTableSpec[]{null};
-    }
+	}
 
-    /**
+    	// TODO comment
+    private void checkExistingDomainForStringColumns(DataTableSpec inSpec) throws InvalidSettingsException {
+
+    	int columnAmount = inSpec.getNumColumns();
+    	HashSet<String> nonExistingSpecs = new HashSet<String>();
+    	for(int count = 0 ; count < columnAmount ; ++count) {
+    		
+    		DataColumnSpec currentSpec = inSpec.getColumnSpec(count);
+    		DataColumnDomain currentDomain = currentSpec.getDomain();
+    		String identifier = currentSpec.getType().getIdentifier();
+   
+    		if( identifier.equals(workflow.ID_STRING)
+    		&& ( !currentDomain.hasValues() ) ) {
+    			nonExistingSpecs.add( currentSpec.getName() );
+    		}
+    	}
+
+    	if( !nonExistingSpecs.isEmpty() )
+    		{ throw new InvalidSettingsException( "No value list found in domain for the columns: " + nonExistingSpecs.toString() + " (If you still want to use these column re-create the table with the \"Domain Calculator\" node with unrestricted number of possible values) " ); }
+		
+	}
+
+    interface SettingsOps {
+    	void ops( SettingsModel[] a);
+    }
+    
+    interface SettingsOpsThrow {
+    	void ops( SettingsModel[] a) throws InvalidSettingsException;
+    }
+    
+    protected SettingsModel[] classesConfigToArray() {
+    	return classesConfig.values().toArray( new SettingsModel[0]  );
+    }
+    
+    private SettingsModel[] MODELS_DICOVERY = {target_class , generator_seed , useDefaultOrNot , trialsAmount , collectIterations , generalSettings};
+    protected SettingsModel[] getModelsDiscovery() { return MODELS_DICOVERY; }
+
+    private SettingsModel[] MODELS_EXTRACTOR = {target_class};
+    protected SettingsModel[] getModelsExtractor() { return MODELS_EXTRACTOR; }
+
+    private SettingsModel[] MODELS_PARSE = {target_class , desc_class , in_class, then_class};
+    protected SettingsModel[] getModelsParse() { return MODELS_PARSE; }
+    
+	/**
      * {@inheritDoc}
      */
     @Override
     protected void saveSettingsTo(final NodeSettingsWO settings) {
     	
-		target_class.saveSettingsTo(settings);
-		
-		generator_seed.saveSettingsTo(settings);
-		
-		useDefaultOrNot.saveSettingsTo(settings);
-		
-		trialsAmount.saveSettingsTo(settings);
-		
-		collectIterations.saveSettingsTo(settings);
-		
-		generalSettings.saveSettingsTo(settings);
-		
-		Collection<SettingsModel> values = classesConfig.values();
-		for(SettingsModel element : values)
-			element.saveSettingsTo(settings);
+    	NODES_TYPES mode = getMode();
+    	
+    	SettingsOps ops = (a) -> {for(SettingsModel b : a) b.saveSettingsTo(settings);};
+    	
+    	if(mode == NODES_TYPES.DISCOVERY) {
+
+			ops.ops(getModelsDiscovery());
+			
+			ops.ops( classesConfigToArray() );
+
+    	}
+    	else if(mode == NODES_TYPES.EXTRACTOR) {
+    		
+    		ops.ops(getModelsExtractor());
+    		
+    	}
+    	else if (mode == NODES_TYPES.PARSER) {
+    		
+    		ops.ops(getModelsParse());
+    		
+			ops.ops( classesConfigToArray() );
+    		
+    	}
     }
 
     /**
@@ -250,21 +385,27 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     @Override
     protected void loadValidatedSettingsFrom(final NodeSettingsRO settings)
             throws InvalidSettingsException {
-		target_class.loadSettingsFrom(settings);
+    	
+    	NODES_TYPES mode = getMode();
+    	
+    	SettingsOpsThrow ops = (a) -> {for(SettingsModel b : a) b.loadSettingsFrom(settings); };
+    	
+    	if (mode == NODES_TYPES.DISCOVERY) {
+    		
+    		ops.ops(getModelsDiscovery());
 		
-		generator_seed.loadSettingsFrom(settings);
-		
-		useDefaultOrNot.loadSettingsFrom(settings);
-		
-		trialsAmount.loadSettingsFrom(settings);
-		
-		collectIterations.loadSettingsFrom(settings);
-		
-		generalSettings.loadSettingsFrom(settings);
-		
-		Collection<SettingsModel> values = classesConfig.values();
-		for(SettingsModel element : values)
-			element.loadSettingsFrom(settings);
+			ops.ops( classesConfig.values().toArray( new SettingsModel[0]  ) );
+    	}
+    	else if (mode == NODES_TYPES.EXTRACTOR) {
+    		
+    		ops.ops(getModelsExtractor());
+    	}
+    	else if (mode == NODES_TYPES.PARSER) {
+    		
+    		ops.ops(getModelsParse());
+    		
+			ops.ops( classesConfig.values().toArray( new SettingsModel[0]  ) );
+    	}
     }
 
     /**
@@ -273,21 +414,28 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     @Override
     protected void validateSettings(final NodeSettingsRO settings)
             throws InvalidSettingsException {
-		target_class.validateSettings(settings);
+    	
+    	NODES_TYPES mode = getMode();
+    	
+    	SettingsOpsThrow ops = (a) -> {for(SettingsModel b : a) b.validateSettings(settings); };
+    	
+    	if (mode == NODES_TYPES.DISCOVERY) {
+    	
+    		ops.ops(getModelsDiscovery());
 
-		generator_seed.validateSettings(settings);
+			ops.ops( classesConfig.values().toArray( new SettingsModel[0]  ) );
+    	}
+    	else if (mode == NODES_TYPES.EXTRACTOR) {
+    		
+    		ops.ops(getModelsExtractor());
+    	}
+    	else if (mode == NODES_TYPES.PARSER) {
+    		
+    		ops.ops(getModelsParse());
 
-		useDefaultOrNot.validateSettings(settings);
-
-		trialsAmount.validateSettings(settings);
-
-		collectIterations.validateSettings(settings);
-		
-		generalSettings.validateSettings(settings);
-
-		Collection<SettingsModel> values = classesConfig.values();
-		for(SettingsModel element : values)
-			element.validateSettings(settings);
+			ops.ops( classesConfig.values().toArray( new SettingsModel[0]  ) );
+    		
+    	}
     }
     
     protected void addWarning(final String message) {

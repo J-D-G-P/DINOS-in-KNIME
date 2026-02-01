@@ -1,22 +1,14 @@
 package cu.edu.cujae.daf.knime.nodes.survival;
 
-import javax.swing.JOptionPane;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-
 import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.NodeSettingsWO;
-import org.knime.core.node.defaultnodesettings.DefaultNodeSettingsPane;
-import org.knime.core.node.defaultnodesettings.DialogComponent;
 import org.knime.core.node.defaultnodesettings.DialogComponentColumnNameSelection;
 import org.knime.core.node.defaultnodesettings.DialogComponentString;
-import org.knime.core.node.defaultnodesettings.SettingsModel;
 import org.knime.core.node.defaultnodesettings.SettingsModelString;
 
-import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentCensoringInfo;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeDialog;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
-import cu.edu.cujae.daf.knime.nodes.numeric.NumericDinosKnimeWorkflow;
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
 
 /**
  * Configuration interface for survival subgroup discovery,
@@ -39,6 +31,9 @@ public class DinosSurvivalSubgroupDiscoveryNodeDialog extends GenericDinosKnimeD
 	protected GenericDinosKnimeWorkflow getInstance() { return SurvivalDinosKnimeWorkflow.INSTANCE_SURVIVAL; }
 	
 	protected SurvivalDinosKnimeWorkflow survivalWorkflow =  SurvivalDinosKnimeWorkflow.INSTANCE_SURVIVAL;
+	
+	@Override
+	protected NODES_TYPES getMode() { return NODES_TYPES.DISCOVERY; }
 	
 	@Override
 	protected void addClassToGeneralTab(GenericDinosKnimeDialog panel) {
@@ -81,9 +76,6 @@ public class DinosSurvivalSubgroupDiscoveryNodeDialog extends GenericDinosKnimeD
 
         super.saveAdditionalSettingsTo(settings);
     }
- 
-
- 
 	
 }
 

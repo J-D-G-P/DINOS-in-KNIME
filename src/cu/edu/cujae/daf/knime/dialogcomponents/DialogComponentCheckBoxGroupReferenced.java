@@ -29,7 +29,7 @@ import org.knime.core.node.port.PortObjectSpec;
 
 public class DialogComponentCheckBoxGroupReferenced extends DialogComponent implements ReseatableDialogComponent {
 
-		// The actual checkboxrs
+		// The actual checkboxes
 	private final JCheckBox[] m_checkboxes;
 	
 		// Label for the whole group
@@ -116,7 +116,7 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
         m_resetBtn = new JButton("Reset");
         m_resetBtn.addActionListener( new ActionListener() {
 			@Override
-			public void actionPerformed(ActionEvent e) {}} );
+			public void actionPerformed(ActionEvent e) { resetToDefault(); }} );
         getComponentPanel().add( m_resetBtn );
 	    
 	    referencesIndexes = getReferencesIndexes(references);

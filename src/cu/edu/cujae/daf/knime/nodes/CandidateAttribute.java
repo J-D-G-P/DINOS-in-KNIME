@@ -1,6 +1,7 @@
 package cu.edu.cujae.daf.knime.nodes;
 
 import java.util.LinkedHashMap;
+
 import cu.edu.cujae.daf.context.dataset.AttributeType;
 
 class CandidateAttribute {

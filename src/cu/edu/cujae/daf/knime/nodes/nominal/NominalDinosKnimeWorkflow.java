@@ -1,7 +1,7 @@
 package cu.edu.cujae.daf.knime.nodes.nominal;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +13,7 @@ import org.knime.core.data.DataRow;
 import org.knime.core.data.DataTableSpec;
 import org.knime.core.data.DataValue;
 import org.knime.core.data.NominalValue;
+import org.knime.core.data.StringValue;
 import org.knime.core.data.def.BooleanCell;
 import org.knime.core.data.def.DefaultRow;
 import org.knime.core.data.def.IntCell;
@@ -27,13 +28,13 @@ import cu.edu.cujae.daf.codification.individual.Individual;
 import cu.edu.cujae.daf.context.dataset.Attribute;
 import cu.edu.cujae.daf.context.dataset.Dataset;
 import cu.edu.cujae.daf.context.dataset.DiscClassDataset;
-import cu.edu.cujae.daf.context.dataset.Instance;
-import cu.edu.cujae.daf.context.dataset.Dataset.ClassType;
-import cu.edu.cujae.daf.context.dataset.Dataset.DiscreteClass$;
 import cu.edu.cujae.daf.core.Algorithm;
+import cu.edu.cujae.daf.core.DiscoveryMode;
+import cu.edu.cujae.daf.core.DiscreteMode$;
 import cu.edu.cujae.daf.core.Subgroup;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeModel;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
+import cu.edu.cujae.daf.utils.SubgroupParser;
 
 /**
  * Contains all methods and constants for interfacing with the DAF library
@@ -48,6 +49,11 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		// The Singleton Instance
 	public static final GenericDinosKnimeWorkflow INSTANCE_NOMINAL = new NominalDinosKnimeWorkflow();
 
+		// The Helper Instance
+	public static final DiscoveryMode MODE_NOMINAL = DiscreteMode$.MODULE$;
+	
+	public Class<? extends DataValue> getThenTargetType() {return StringValue.class;}
+	
 		// Variable to store the cells type supported by this as target
 		@SuppressWarnings("unchecked")
 	public static final Class<? extends DataValue>[] TARGETS_NOMINAL = new Class[] {NominalValue.class};
@@ -55,8 +61,13 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		/**
 		 * {@inheritDoc}
 		 */
+		//	@Override
+
+		/**
+		 * {@inheritDoc}
+		 */
 	@Override
-	public ClassType getClassType() { return DiscreteClass$.MODULE$;}
+	public DiscoveryMode getModeHelper() { return DiscreteMode$.MODULE$;}
 	
 		/**
 		 * {@inheritDoc}
@@ -66,39 +77,7 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 	
 		// Constructor, nothing to initialize
 	private NominalDinosKnimeWorkflow() {}
-	
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public Map< String , Map < String , String > >getExclusiveClasses() {
-		 Map< String , Map < String , String > > result = new HashMap<String, Map<String, String>>();
-		 result.put( super.INFO_COMPONENTS[0]._1, null );
-		 result.put( super.INFO_COMPONENTS[1]._1, null );
-		 result.put( super.INFO_COMPONENTS[2]._1, null );
-		 result.put( super.INFO_COMPONENTS[3]._1, Map.of(
 
-				 	"CertaintyFactor" , "Certainty Factor"
-				 ) );
-		 result.put( super.INFO_COMPONENTS[4]._1 ,Map.of(
-
-				 	"CertaintyFactorSelector" , "Certainty Factor Selector",
-				 	"GreaterLiftSelector" , "Greater Lift Selector"
-				 ) );
-		 result.put( super.INFO_COMPONENTS[5]._1 , null );
-		 result.put( super.INFO_COMPONENTS[6]._1 , null );
-		 result.put( super.INFO_COMPONENTS[7]._1 , null );
-		 	// Skip Subgroup Formatter
-		 result.put( super.INFO_COMPONENTS[9]._1 , null );
-		 result.put( super.INFO_COMPONENTS[10]._1 , null );
-		 result.put( super.INFO_COMPONENTS[11]._1 , null );
-		 result.put( super.INFO_COMPONENTS[12]._1, null );
-		 result.put( super.INFO_COMPONENTS[13]._1, null
-				 );
-		 result.values();
-
-		 return result;
-	}
 	
 		/**
 		 * {@inheritDoc}
@@ -109,35 +88,7 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		return new LinkedHashMap<String, Map<String, String[]>>();
 	}
 	
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public Algorithm defaultAlgorithmSettings() {
-		return Algorithm.classicDinos();
-	}
 
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public scala.collection.immutable.Map<String, String[]> getDefaultClasses() {
-			return Algorithm.getDiscreteDefaultParameters();
-	}
-
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	protected Algorithm getDefaultAlgorithm() {
-		return Algorithm.classicDinos();
-	}
-
-		/**
-		 * This mode have true positives, coverage and metrics info
-		 * 
-		 * {@inheritDoc}
-		 */
 		@Override
 	public BufferedDataTable subgroupInformation(Algorithm dinos, Dataset dataset, ExecutionContext exec) {
 			// Store the column names and types
@@ -219,7 +170,10 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			 */
 		@Override
 		protected void addPrediction(List<DataCell> cells, Individual currentSubgroup, Dataset dataset) {
-			cells.add( new StringCell( dataset.classAtt().value( currentSubgroup.mainClass().value().left().getOrElse(null) ) ) );
+			if(currentSubgroup == null)
+				super.addPrediction(cells, currentSubgroup, dataset);
+			else
+				cells.add( new StringCell( dataset.classAtt().value( currentSubgroup.mainClass().value().left().getOrElse(null) ) ) );
 		}
 
 		
@@ -252,6 +206,13 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			
 		}
 
-
+		protected String printThenCell( DataRow row , int inPosition, int thenPosition, HashSet<String> targets) {
+			
+			String inText = printInCell(inPosition, row, targets);
+			String thenText = SubgroupParser.nominal( ( (StringCell) row.getCell(thenPosition) ).getStringValue() );
+			
+			return
+					SubgroupParser.classThen() + SubgroupParser.whiteSpace() + inText + thenText;
+		}
 	
 }

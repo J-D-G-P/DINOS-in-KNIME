@@ -1,13 +1,11 @@
 package cu.edu.cujae.daf.knime.nodes.survival;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.knime.core.data.NominalValue;
 import org.knime.core.data.DataCell;
 import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataColumnSpecCreator;
@@ -16,11 +14,12 @@ import org.knime.core.data.DataTableSpec;
 import org.knime.core.data.DataValue;
 import org.knime.core.data.DoubleValue;
 import org.knime.core.data.IntValue;
+import org.knime.core.data.MissingCell;
+import org.knime.core.data.NominalValue;
 import org.knime.core.data.def.BooleanCell;
 import org.knime.core.data.def.DefaultRow;
 import org.knime.core.data.def.DoubleCell;
 import org.knime.core.data.def.IntCell;
-import org.knime.core.data.def.IntervalCell;
 import org.knime.core.data.def.StringCell;
 import org.knime.core.node.BufferedDataContainer;
 import org.knime.core.node.BufferedDataTable;
@@ -29,20 +28,17 @@ import org.knime.core.node.defaultnodesettings.SettingsModelString;
 import org.knime.core.node.workflow.VariableType.DoubleType;
 import org.knime.core.node.workflow.VariableType.IntType;
 
-import cu.edu.cujae.daf.codification.NumericMatrix;
-import cu.edu.cujae.daf.codification.NumericProperty;
 import cu.edu.cujae.daf.codification.SurvivalMatrix;
 import cu.edu.cujae.daf.codification.individual.Individual;
 import cu.edu.cujae.daf.context.dataset.Dataset;
-import cu.edu.cujae.daf.context.dataset.DiscClassDataset;
-import cu.edu.cujae.daf.context.dataset.NumClassDataset;
 import cu.edu.cujae.daf.context.dataset.SurvClassDataset;
-import cu.edu.cujae.daf.context.dataset.Dataset.ClassType;
-import cu.edu.cujae.daf.context.dataset.Dataset.SurvivalClass$;
 import cu.edu.cujae.daf.core.Algorithm;
+import cu.edu.cujae.daf.core.DiscoveryMode;
 import cu.edu.cujae.daf.core.Subgroup;
+import cu.edu.cujae.daf.core.SurvivalMode$;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeModel;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
+import scala.Option;
 
 /**
  * Contains all methods and constants for interfacing with the DAF library
@@ -69,8 +65,15 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 	public static final String MESSAGE_GUESSING_CENSORIDENT = " Guessing Censor indication:";
 	public static final String MESSAGE_CENSORCLASSNOTFOUND = "Previously configured censor column not found or incompatible: ";
 	
-		// The Singleton Instance
+		// Name of Column names
+	public static final String COLUMN_SUBGROUP = "[SUBGROUP]";
+	public static final String COLUMN_STATUS = "[CENSORED (" + GenericDinosKnimeWorkflow.BOOL_FALSE_TEXT + ") / ALIVE (" + GenericDinosKnimeWorkflow.BOOL_TRUE_TEXT + ")]";
+
+			// The Singleton Instance
 	public static final SurvivalDinosKnimeWorkflow INSTANCE_SURVIVAL = new SurvivalDinosKnimeWorkflow();
+	
+		// The Helper Instance
+	public static final DiscoveryMode MODE_SURVIVAL = SurvivalMode$.MODULE$;
 	
 		// Variable to store the cells type supported by this as target
 		@SuppressWarnings("unchecked")
@@ -82,12 +85,20 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 
 		
 	public static Class<? extends DataValue>[] getCensorTargetTypes( ) { return TARGETS_CENSOR; }
+	
+	public Class<? extends DataValue> getThenTargetType() {return DoubleValue.class;}
 
 		/**
 		 * {@inheritDoc}
 		 */
+//	@Override
+//	public ClassType getClassType() { return SurvivalClass$.MODULE$;}
+//	
+		/**
+		 * {@inheritDoc}
+		 */
 	@Override
-	public ClassType getClassType() { return SurvivalClass$.MODULE$;}
+	public DiscoveryMode getModeHelper() { return SurvivalMode$.MODULE$;}
 	
 		/**
 		 * {@inheritDoc}
@@ -105,44 +116,7 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 	public static SettingsModelString createCensorIndicationModel() {
 		return new SettingsModelString( KEY_CENSOR_INDICATION , DEFAULT_CENSOR_INDICATION );
 		}
-	
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public Map< String , Map < String , String > >getExclusiveClasses() {
-		 Map< String , Map < String , String > > result = new HashMap<String, Map<String, String>>();
-		 
-		 LinkedHashMap<String, String> auxiliar = null;
-		 
-		 result.put( super.INFO_COMPONENTS[0]._1, null );
-		 result.put( super.INFO_COMPONENTS[1]._1, null );
-		 result.put( super.INFO_COMPONENTS[2]._1, null );
-		 
-		 auxiliar = new LinkedHashMap<String, String>();
-		 auxiliar.put("ESGDataset", "ESG Metric Against Entire Dataset");
-		 auxiliar.put("ESGComplement", "ESG Metric Against Complement");
-		 result.put( super.INFO_COMPONENTS[3]._1, auxiliar );
-		 
-		 auxiliar = new LinkedHashMap<String, String>();
-		 auxiliar.put("DummySurvivalSelector", "Dummy Survival Selector");
-		 result.put( super.INFO_COMPONENTS[4]._1 , auxiliar );
-		 
-		 result.put( super.INFO_COMPONENTS[5]._1 , null );
-		 result.put( super.INFO_COMPONENTS[6]._1 , null );
-		 result.put( super.INFO_COMPONENTS[7]._1 , null );
-		 	// Skip Subgroup Formatter
-		 result.put( super.INFO_COMPONENTS[9]._1 , null );
-		 result.put( super.INFO_COMPONENTS[10]._1 , null );
-		 result.put( super.INFO_COMPONENTS[11]._1 , null );
-		 result.put( super.INFO_COMPONENTS[12]._1, null );
-		 result.put( super.INFO_COMPONENTS[13]._1, null
-				 );
-		 result.values();
 
-		 return result;
-	}
-	
 		/**
 		 * {@inheritDoc}
 		 */
@@ -170,35 +144,6 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		return new LinkedHashMap<String, Map<String, String[]>>();
 	}
 	
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public Algorithm defaultAlgorithmSettings() {
-		return Algorithm.survivalDinos();
-	}
-
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public scala.collection.immutable.Map<String, String[]> getDefaultClasses() {
-			return Algorithm.getSurvivalDefaultParameters();
-	}
-
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	protected Algorithm getDefaultAlgorithm() {
-		return Algorithm.survivalDinos();
-	}
-
-		/**
-		 * This mode have true positives, coverage and metrics info
-		 * 
-		 * {@inheritDoc}
-		 */
 		@Override
 	public BufferedDataTable subgroupInformation(Algorithm dinos, Dataset dataset, ExecutionContext exec) {
 
@@ -239,10 +184,14 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			
 		}
 		
+				// Amount of Instances
+		cells.add( new IntCell( currentMatrix.coverage() ) );
 				// Amount of Censored Instances
 		cells.add( new IntCell( currentMatrix.getAmountCensored() ) );
 				// Rate of Censored Instances
 		cells.add( new DoubleCell( currentMatrix.getRateCensored() ) );
+				// Median
+		cells.add( parseMedian( currentMatrix.getMedian() )  );
 				// Survival Mean
 		cells.add( new DoubleCell( currentMatrix.getMeanMaxFollowUp() ) );
 				// Maximum Follow Up
@@ -262,6 +211,12 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		return container.getTable();
 	}
 
+			private DataCell parseMedian(Option<Object> median) {
+				return median.isDefined()
+						? new DoubleCell( (double) median.get() )
+						: new MissingCell(null);
+		}
+
 			/**
 			 * {@inheritDoc}
 			 */
@@ -270,16 +225,20 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 					// Store the columns of the output column
 		List<DataColumnSpec> outputSpecs = new ArrayList<>();
 					// Description of Subgroup
-		outputSpecs.add( new DataColumnSpecCreator("Subgroup", StringCell.TYPE).createSpec() );
+		outputSpecs.add( new DataColumnSpecCreator(COLUMN_SUBGROUP, StringCell.TYPE).createSpec() );
 		
 				// Result from metrics (as a sort of target value)
 		var hello = ( (SurvivalMatrix) dinos.externalPopulation()[0].typePattern().contingencyMatrix() ).calcs().keysIterator();
 		while ( hello.hasNext() )
 		{	outputSpecs.add( new DataColumnSpecCreator( hello.next() , DoubleCell.TYPE).createSpec() );	}
+				// Amount of Instances
+		outputSpecs.add( new DataColumnSpecCreator("Total Instances", IntCell.TYPE).createSpec() );
 				// Amount of Censored Instances
 		outputSpecs.add( new DataColumnSpecCreator("Amount of Censored Instances", IntCell.TYPE).createSpec() );
 				// Rate of Censored Instances
 		outputSpecs.add( new DataColumnSpecCreator("Rate of Censored Instances", DoubleCell.TYPE).createSpec() );
+				// Median
+		outputSpecs.add( new DataColumnSpecCreator("Median", DoubleCell.TYPE).createSpec() );
 				// Survival Mean
 		outputSpecs.add( new DataColumnSpecCreator("Survival Mean", DoubleCell.TYPE).createSpec() );
 				// Maximum Follow Up
@@ -296,7 +255,7 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			 */
 		@Override
 		protected void addTargetSpecs(Dataset dataset, List<DataColumnSpec> outputSpecs) {
-			outputSpecs.add( new DataColumnSpecCreator( "CENSORED (" + this.BOOL_FALSE_TEXT + ") / ALIVE (" + this.BOOL_TRUE_TEXT + ")" , BooleanCell.TYPE).createSpec()
+			outputSpecs.add( new DataColumnSpecCreator( COLUMN_STATUS , BooleanCell.TYPE).createSpec()
 					);
 		}
 		
@@ -330,9 +289,13 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			nodeModel.addResultVariables( datasetPrefix + "maxFollowUp", DoubleType.INSTANCE, survivalDataset.getMaximumFollowup() );
 				// Survival Max Mean (survivalMean)
 			nodeModel.addResultVariables( datasetPrefix + "maxMean", DoubleType.INSTANCE, survivalDataset.getSurvivalMean() );
-			
+				// Subgroup median
+			var median = survivalDataset.getSurvivalMedian();
+			nodeModel.addResultVariables( datasetPrefix + "median", DoubleType.INSTANCE, median.isDefined() ? (double) median.get() : null );			
 		}
 
-
+		protected String printThenCell( DataRow row , int inPosition, int thenPosition, HashSet<String> targets) {
+			return "";
+		}
 	
 }

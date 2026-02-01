@@ -3,6 +3,8 @@ package cu.edu.cujae.daf.knime.nodes;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+import org.knime.core.node.InvalidSettingsException;
+import org.knime.core.node.NodeSettingsWO;
 import org.knime.core.node.defaultnodesettings.DefaultNodeSettingsPane;
 import org.knime.core.node.defaultnodesettings.DialogComponent;
 import org.knime.core.node.defaultnodesettings.DialogComponentBoolean;
@@ -14,9 +16,10 @@ import org.knime.core.node.defaultnodesettings.SettingsModelBoolean;
 
 import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentCheckboxWithActionListener;
 import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentNumberResetable;
-import cu.edu.cujae.daf.knime.dialogcomponents.ReseatableDialogComponent;
-import scala.Tuple4;
 import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentStringsFromSpinnerGroup;
+import cu.edu.cujae.daf.knime.dialogcomponents.ReseatableDialogComponent;
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
+import scala.Tuple4;
 
 /**
  * Default configuration interface for all subgroup discovery nodes
@@ -42,31 +45,55 @@ import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentStringsFromSpinner
 	@SuppressWarnings("static-access")
 public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 
+		/** 
+		 * 1 - Subgroup Discovery
+		 * 2 - Dataset Extractor
+		 * 3 - Parser
+		 */
+	protected abstract NODES_TYPES getMode();		
+		
 		/** This class will get the workflow helper for this mode */
 	protected abstract GenericDinosKnimeWorkflow getInstance();
 		// Work from this
 	protected final GenericDinosKnimeWorkflow workflow = getInstance();
 		// Target class, single
 	protected DialogComponentColumnNameSelection classCol;
-		// THis component add a field for a random seed an a checkbox to define if to use it or not
+	
+	protected DialogComponentColumnNameSelection descCol;
+	
+	protected DialogComponentColumnNameSelection inCol;
+	
+	protected DialogComponentColumnNameSelection thenCol;
+		// This component add a field for a random seed an a checkbox to define if to use it or not
 	protected DialogComponentSeed seedSelection;
-    	// A button that retests al components in the "component" array
+    	// A button that resets all components in the "component" array
 	protected DialogComponentButton resetAllComponentsButton;
     	// Checkbox that shows whether to use or not the default settings of the workflow
 	protected DialogComponentCheckboxWithActionListener useDefaultOrNot;
     	// Custom components for storing the configurations
 	protected DialogComponent[] components;
+
 	
     	// Constructor, it has been made as modular as possible to easily just extend and replace the necessary parts
     protected GenericDinosKnimeDialog() {
   
         super();
         
-        createDialog(this);
+        NODES_TYPES mode = getMode();
         
+        if(mode == NODES_TYPES.DISCOVERY) {
+        	createDiscoveryDialog(this);
+        }
+        else if (mode == NODES_TYPES.EXTRACTOR) {
+        	addClassToGeneralTab(this);
+        }
+        else if (mode == NODES_TYPES.PARSER) {
+        	createParserDialog(this);
+        }
     }
+
     	/** Add all tabs for dialog */
-    protected void createDialog(GenericDinosKnimeDialog panel) {
+    protected void createDiscoveryDialog(GenericDinosKnimeDialog panel) {
 
         createGeneralTab(panel);
 
@@ -96,8 +123,6 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 		        classCol = new DialogComponentColumnNameSelection(
 		                workflow.createTargetClass(), workflow.NAME_CLASSCOLUMN , workflow.PORT_INPUT_DATASET , workflow.getAceptedTargetTypes() );
 		        panel.addDialogComponent(classCol);
-		        
-
 			}
 			
 				/** This will add a box for inserting a long value and a checkbox to determine if to use that value or actually generate a random one */
@@ -108,8 +133,8 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 		        panel.addDialogComponent(seedSelection);
 			}
 
-			
-			
+
+
 		    // TAB 2: COMPONENTS
 			
 			/** Tab for setting which component to use for each part of the algorithm, by default the second one */
@@ -141,7 +166,7 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 		    	resetAllComponentsButton = new DialogComponentButton( workflow.NAME_RESETCOMPONENTS );
 		    	
 		    	resetAllComponentsButton.addActionListener( new ActionListener() {
-						// This action is the entire reason for the button
+						// This action is the entire reason of being for the button
 					@Override public void actionPerformed(ActionEvent e) {
 						for(int countComponents = 0 ; countComponents < components.length ; ++ countComponents) {
 							( (ReseatableDialogComponent) components[countComponents] ).resetToDefault(); } } } );
@@ -173,8 +198,6 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 
 			panel.createNewTab( workflow.TAB_SETTINGS );
 			
-			panel.createNewGroup( workflow.NAME_OVERALCONFIGS );
-			
 			addOverallConfigurationToSettingsTab(panel);
 			
 			addListConfigurationToSettingsTab(panel);
@@ -183,6 +206,8 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 				/** This will add additional settings which are internally picked by for use by the class managing the algorithm, but not a specific component  */
     		protected void addOverallConfigurationToSettingsTab(GenericDinosKnimeDialog panel) {
 				
+    			panel.createNewGroup( workflow.NAME_OVERALCONFIGS );
+    			
 				addMaxTrialsToSettingsTab(panel);
 				
 				addCollectIterationsToSettingsTab(panel);
@@ -209,6 +234,70 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 			}
 		
 		
+        	/** Add all tabs for parser dialog */
+    protected void createParserDialog(GenericDinosKnimeDialog panel) {
+
+    	createParserTab(panel);
+
+    	createComponentsTab(panel);
+
+    	createSettingsTab(panel);
+    }
+    
+    	protected void createParserTab(GenericDinosKnimeDialog panel) {
+	    		// Set title
+	    	panel.setDefaultTabTitle( workflow.TAB_DEFAULT );
+	    	
+	    	panel.addClassToGeneralTab(panel);
+	    	
+	    	panel.addParsingSpinners(panel);
+
+    	}
+    	
+    	protected void addParsingSpinners(GenericDinosKnimeDialog panel) {
+    			// Create Name of Group
+    		panel.createNewGroup( workflow.NAME_PARSER );
+    		
+    		addDescriptionClass(this);
+    		
+    		addInClass(this);
+    		
+    		addThenClass(this);
+    	}
+    	
+    	protected void addDescriptionClass(GenericDinosKnimeDialog panel) {
+    		descCol = new DialogComponentColumnNameSelection(
+    				workflow.createDescClass(),
+    				workflow.NAME_PARSER_DESCRIPTION,
+    				workflow.PORT_INPUT_DESCRIPTIONS,
+    				true,
+    				false,
+    				workflow.TARGETS_DESCTYPES);
+    		panel.addDialogComponent(descCol);
+    	}
+    	
+    	protected void addInClass(GenericDinosKnimeDialog panel) {
+    		inCol = new DialogComponentColumnNameSelection(
+    				workflow.createInClass(),
+    				workflow.NAME_PARSER_IN,
+    				workflow.PORT_INPUT_DESCRIPTIONS,
+    				false,
+    				true,
+    				workflow.TARGETS_INTYPES);
+    		panel.addDialogComponent(inCol);
+    	}
+    	
+    	protected void addThenClass(GenericDinosKnimeDialog panel) {
+    		thenCol = new DialogComponentColumnNameSelection(
+    				workflow.createThenClass(),
+    				workflow.NAME_PARSER_THEN,
+    				workflow.PORT_INPUT_DESCRIPTIONS,
+    				false,
+    				true,
+    				workflow.TARGETS_THENYPES);
+    		panel.addDialogComponent(thenCol);
+    	}
+
 		
 			// HELPER FUNCTIONS
 		
@@ -226,5 +315,16 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 			}
 			
 		}
+    	
+        @Override
+        /**
+         * {@inheritDoc}
+         */
+        public void saveAdditionalSettingsTo(final NodeSettingsWO settings)
+                throws InvalidSettingsException {
+        	
+            NODES_TYPES type = getMode();
+            
+        }
 }
 
