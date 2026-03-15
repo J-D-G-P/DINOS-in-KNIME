@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<knimeNode icon="./default.png" type="Manipulator" xmlns="http://knime.org/node/v2.8" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://knime.org/node/v2.10 http://knime.org/node/v2.10.xsd">
+
+<name>DINOS Survival Dataset As Subgroup Extractor</name>
+
+<shortDescription>Extract the entire dataset as one big DINOS subgroup for </shortDescription>
+
+<fullDescription>
+
+<intro>
+Takes the given table to create a DINOS subgroup from it. Class value will be empty. Mostly useful for Survival Analysis, where the resulting subgroup can be appended to Discovery or Parser Results to make a Kaplan-Meier graph comparing subgroups and the dataset's instances.<br/><br/>This specific node is for use in tables describing Survival Analysis data. SA is a branch of statistics which uses specific techniques to analyze datasets with a particular kind of heterogeneous data with a measured time as target variable: The dataset contains both rows that have suffered an event of interest while others haven't (in this last case the data is said to be "censored")
+<br/>The time to the event must be a Double or Integer column and also cannot contain zero or negative values.<br/>The censoring indicator can be either String, Boolean or Integer.
+</intro>
+
+<tab name="General">
+	<option name="Class Column">The column to define as target for subgroup discovery. The node refuses to execute or open the dialogue window If it can't find a column of the supported types for this mode (Integer or Double, positive for survivial times). </option>
+	<option name="Status/Censoring column">The column for indicating if the row is censored or not. Must be Integer, String or Boolean. Cannot be the same as the class column. </option>
+	<option name="Censored Row Indication">Which value of the censoring column use to indicate censoring. If the value is outside the allowed ranges for the column, the node will issue an error on execution. </option>
+</tab>
+
+
+</fullDescription>
+
+<ports>
+
+	<inPort index="0" name="Input data table">The table which to discover subgroups</inPort>
+
+	<outPort index="0" name="Subgroups">Subgroups Description With Metrics</outPort>
+	<outPort index="1" name="Instances">Description of each instance and which subgroup it belongs</outPort>
+	<outPort index="2" name="Runtime Information">Execution Information and Configuration variables</outPort>
+
+</ports>
+
+</knimeNode>

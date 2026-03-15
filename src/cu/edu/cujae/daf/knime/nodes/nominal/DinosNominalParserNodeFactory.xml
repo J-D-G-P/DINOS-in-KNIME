@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<knimeNode icon="./default.png" type="Predictor" xmlns="http://knime.org/node/v2.8" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://knime.org/node/v2.10 http://knime.org/node/v2.10.xsd">
+
+<name>DINOS Nominal Subgroup Parser</name>
+
+<shortDescription>Create DINOS subgroups for  given a dataset and a text descriptions of said subgroups</shortDescription>
+
+<fullDescription>
+
+<intro>
+From textual description of subgroups, find the instances in the data that belongs to said subgroups. DINOS Parser Nodes accept both rules without the "THEN" part (which will be calculated on run time) or the full "IF-THEN". Useful for either recreating DINOS runs, evaluating arbitrary hand-made subgroups or seeing how different metrics evaluate the same subgroups.<br/><br/> This specific node is for use in tables with a single nominal / discrete target variable among the String or Boolean columns.Rules for this mode can be input as either:<br/>1 - Just a String Column with the IF part: column1 = {"petalLength in [1.0 ; 1.9]"}<br/>2 - A String Column with both the IF and the "THEN" part: column1 = {"petalLength in [1.0 ; 1.9] --> class = "Iris-setosa" "}<br/>
+</intro>
+
+<tab name="General">
+	<option name="Class Column">The column to define as target for subgroup discovery. The node refuses to execute or open the dialogue window If it can't find a column of the supported types for this mode (String). </option>
+	<option name="Subgroup Body Description">The column with either the IF part of the subgroup description or the whole "IF-THEN" </option>
+</tab>
+
+<tab name="Components">
+	<option name="Use Default Components">If true, ignore all custom components configuration and use the default one </option>
+	<option name="NOTE: ">Hover the mouse pointer over components to read a description of them </option>
+	<option name="Metric (metrics)">Method or formulas to get the quality of a subgroup, with quality defined as a numerical value to be maximized that the larger it is shows the subgroup is more different from the rest of the data </option>
+	<option name="Objectives (objs)">This uses the same methods for the metrics, but are instead used in the solution generator (see below) </option>
+	<option name="Class Selector (classSel)">Criteria to select the value of the target variable in each subgroup </option>
+	<option name="Feasibility Evaluator (feas)">Determine if a candidate subgroup is feasible </option>
+	<option name="Feasibility Operator (feasOp)">Feasibility criteria of an individual, which modifies previously defined candidate subgroups as unfeasible until it is marked as feasible </option>
+	<option name="Tuners (tuners)">Modifies candidate subgroup to a certain criteria after creation </option>
+	<option name="Dominance (dom)">Dominance criteria between two candidate subgroups to use in the genetic algorithm, dominance determines which of two subgroups to be compared is the best </option>
+	<option name="Redundancy (red)">Redundancy criteria between two candidate subgroups to use in the genetic algorithm, which determines if the subgroups to be compared cover the same instances i.e: their results overlap each other </option>
+	<option name="External Population Updater (upd)">After each algorithm iteration, which filter to apply to determine if any of the newly generated subgroups is better than the ones previously defined as the best </option>
+	<option name="Individual (ind)">An individual is an internal representation of a candidate subgroup, not final ones as presented to the user </option>
+	<option name="Initial Population Generator (popGen)">At the beginning of each iteration, which method to use to create new candidate subgroups </option>
+	<option name="Solution Generator (solGen)">Method to use to determine the best candidates among the initial population </option>
+	<option name="Crossover Operator (cross)">Crossover method for the genetic algorithm, which creates a new candidate subgroup from a list of other candidates </option>
+	<option name="Mutate Operator (mut)">Mutation method for the genetic algorithm, which alters the given candidate based on a certain criteria </option>
+</tab>
+
+<tab name="Settings">
+	<option name="Maximum Amount of Evaluations">The algorithm will make no more evaluations and stop after doing the specified amount. Due to the iterative cycle of the genetic algorithm where it replaces subgroups previously defined as the best as it finds better ones the higher this number is, the more chances and time the algorithm will have to find better subgroups. However, making it larger will not magically find better subgroups for the given data, there being a limit depending on both the component configuration and the distribution of the data. </option>
+	<option name="Component Specific Configuration Parameters">The components of the algorithm can use variables to fine tune their behavior. All available settings are collected here, notice that some components may use the same setting. </option>
+	<option name="NOTE: ">Hover the mouse pointer over settings to read a description of them </option>
+</tab>
+
+
+</fullDescription>
+
+<ports>
+
+	<inPort index="0" name="Input data table">The table which to use as dataset</inPort>
+	<inPort index="1" name="Subgroup Descriptions">The table with subgroup descriptions for parsing</inPort>
+
+	<outPort index="0" name="Subgroups">Subgroups Description With Metrics</outPort>
+	<outPort index="1" name="Instances">Description of each instance and which subgroup it belongs</outPort>
+	<outPort index="2" name="Runtime Information">Execution Information and Configuration variables</outPort>
+
+</ports>
+
+</knimeNode>
