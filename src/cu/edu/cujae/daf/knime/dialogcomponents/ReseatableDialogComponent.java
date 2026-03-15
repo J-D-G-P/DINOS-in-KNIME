@@ -15,4 +15,15 @@ public interface ReseatableDialogComponent{
 		 * to a previously specified default value
 		 */
 	public void resetToDefault();
+	
+		/**
+		 * 
+		 * Set if the user can interact with the component.
+		 * Necessary since disabling the source JPanel doesn't
+		 * work, but also because "setEnableComponents" is
+		 * protected.
+		 * 
+		 * @param value True to enable, False to Disable
+		 */
+	public void setEnabledOrDisabledComponents(boolean value);
 }

@@ -16,6 +16,8 @@ import org.knime.core.node.defaultnodesettings.DialogComponent;
 import org.knime.core.node.defaultnodesettings.SettingsModelStringArray;
 import org.knime.core.node.port.PortObjectSpec;
 
+import cu.edu.cujae.daf.core.ComponentInfo;
+
 /**
  * Custom visual KNIME component, this consist of several checkboxes
  * grouped in a column with results saved to a single Settings Model 
@@ -32,12 +34,12 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 		// The actual checkboxes
 	private final JCheckBox[] m_checkboxes;
 	
-		// Label for the whole group
-	private final String name;
-	
 		// For each checkbox, the values to actually save
 	private final String[] references;
 	
+		// Label for the whole group
+	private final String name;
+
 		// How many checkboxes per row
 		@SuppressWarnings("unused")
 	private final int amountPerRow;
@@ -54,6 +56,30 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
     	// Key is a value in "m_checkboxes", value is it's respective position
     private final LinkedHashMap<String, Integer> referencesIndexes;
 	
+		/**
+		 * Default constructor for several checkboxes,
+		 * referencing a single StringSettingsModel and creating empty tooltips
+		 * for every checkbox
+		 * 
+		 * @param model The model where to store the reference strings of the selected checkboxes
+		 * @param name How to label the entire group
+		 * @param labels Text to give to each checkbox
+		 * @param references The strings actually saved by each respective checkbox when saved
+		 * @param amountPerRow How many checkboxes  to place per row
+		 * @param minimumSelected Give a warning if less checkboxes than this value is selected
+		 * @param defaults The strings in "references" to take as default when resetting
+		 */
+	public DialogComponentCheckBoxGroupReferenced(
+			SettingsModelStringArray model,
+			String name,
+			String[] labels,
+			String[] references,
+			int amountPerRow,
+			int minimumSelected,
+			String[] defaults) {
+		this(model, name, labels, references, amountPerRow, minimumSelected, defaults, new String[labels.length] );
+	}
+    
     	/**
     	 * Default constructor for several checkboxes
     	 * referencing a single StringSettingsModel
@@ -64,7 +90,8 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
     	 * @param references The strings saved by each respective checkbox when saved
     	 * @param amountPerRow How many checkboxes  to place per row
     	 * @param minimumSelected Give a warning if less checkboxes than this value is selected
-    	 * @param defaults The strings of in "references" to take as default as default
+    	 * @param defaults The strings in "references" to take as default when resetting
+    	 * @params toolTips Messages describing the components when hovering over it's respective checkbox
     	 */
 	public DialogComponentCheckBoxGroupReferenced(
 			SettingsModelStringArray model,
@@ -73,9 +100,11 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 			String[] references,
 			int amountPerRow,
 			int minimumSelected,
-			String[] defaults) {
+			String[] defaults,
+			String[] toolTips) {
 		super(model);
-			// Box layout will make simply
+		
+			// Box layout will make just
 			// adding components to get the desired "columns"
 			// and "row" structure easier by making this the "column"
 		JPanel masterPanel = getComponentPanel();
@@ -83,7 +112,7 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 		
 			// Validate these given variables
 		this.name = name;
-		this.references = validateReferences(labels, references);
+		this.references = validateReferences(labels, references, toolTips);
 		this.amountPerRow = validateAmountPerRow(amountPerRow);
 		this.minimumSelected = validateMinimumSelected(minimumSelected, references.length);
 		this.defaultIndexes = validateDefaultIndexes(references , defaults);
@@ -100,7 +129,12 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 	    	m_checkboxes[count] = toAddBox;
 	    	toAddPanel.add( toAddBox );  
 	   	   ++currentPanel;
-	   	   	// if the current "row" has been filled add it
+	   	   
+		    	// Tool Tips (text to show when hovering)
+		    String currentTip = toolTips[count];
+		    toAddBox.setToolTipText(currentTip);
+	   	   
+		    	// if the current "row" has been filled add it
     	   if( !(currentPanel < amountPerRow) ) {
     		   masterPanel.add(toAddPanel);
 	    	   toAddPanel = new JPanel();
@@ -111,7 +145,7 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 	    	//per row isn't exactly divisible by the amount of checkboxes
 	    if( labels.length % amountPerRow != 0)
 	    	masterPanel.add(toAddPanel);
-	    
+		    
 	    	// Create the button and add it's action
         m_resetBtn = new JButton("Reset");
         m_resetBtn.addActionListener( new ActionListener() {
@@ -121,6 +155,45 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 	    
 	    referencesIndexes = getReferencesIndexes(references);
 	}
+
+			/**
+			 * Helper / constructor wrapper for getting a component of this type from
+			 *  a {@link ComponentInfo} item, from it gets the references, the checkbox
+			 *  labels and the hovering tooltip descriptions
+			 * 
+			 * @param model The model where to store the reference strings of the selected checkboxes
+			 * @param name How to label the entire group
+			 * @param referencesAndLabels Objects from where to get references, labels and descriptions
+			 * @param amountPerRow How many checkboxes  to place per row
+			 * @param minimumSelected Give a warning if less checkboxes than this value is selected
+			 * @param defaults The strings in "references" to take as default when resetting
+			 * 
+			 * @return A component from this type with the parameters of the information given
+			 */
+		public static DialogComponentCheckBoxGroupReferenced DialogComponentCheckBoxGroupReferencedFromComponentInfo(
+				SettingsModelStringArray model,
+				String name,
+				ComponentInfo referencesAndLabels[],
+				int defaultCheckboxgroupElementsPerRow,
+				int defaultCheckboxgroupMetricsMinimum,
+				String[] defaults) {
+
+    		int size = referencesAndLabels.length;
+    		
+    		String[] references = new String[size];
+    		String[] labels = new String[size];
+    		String[] description = new String[size];
+    		
+    		for(int count = 0 ; count < referencesAndLabels.length ; ++count) {
+    			ComponentInfo current = referencesAndLabels[count];
+    			
+    			references[count] = current.shortName();
+    			labels[count] = current.verboseName();
+    			description[count] = current.description();
+    		}
+			
+			return new DialogComponentCheckBoxGroupReferenced(model, name, labels, references, defaultCheckboxgroupElementsPerRow, defaultCheckboxgroupMetricsMinimum, defaults, description);
+		}
 
 		/**
 		 * Check if the "minimumSelected" given integer value:
@@ -175,7 +248,7 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 		 * - Are actually in the given references
 		 * 
 		 * @param references All the values to save in the settings model
-		 * @param defaults The list of values to consider defaults for the component
+		 * @param defaults The strings in "references" to take as default when resetting
 		 * 
 		 * @return An array with the indexes of where to find default values in references
 		 */
@@ -229,14 +302,19 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 		 * 
 		 * @param labels The checkboxes labels that will be shown to the user
 		 * @param references The values that will be saved to the Node's settings
+		 * @param toolTips Message to be shown as tooltips
 		 * 
 		 * @return The same provided array of references
 		 */
-	private String[] validateReferences(String[] labels, String[] references) {
+	private String[] validateReferences(String[] labels, String[] references, String[] toolTips) {
 		if(references.length != labels.length) {
-			throw new IllegalArgumentException("Tried to create a referenced checkbox group with differing size of reference and shown labels");
-			
+			throw new IllegalArgumentException("Tried to create a referenced checkbox group with differing size of reference and shown labels");	
 		}
+		
+		if(references.length != toolTips.length) {
+			throw new IllegalArgumentException("Tried to create a referenced checkbox group with differing size of reference and tooltip texts");	
+		}
+		
 		return references;
 	}
 
@@ -284,6 +362,9 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
     }
 	
 
+    	/**
+    	 * {@inheritDoc}
+    	 */
 	@Override
 	protected void validateSettingsBeforeSave() throws InvalidSettingsException {
         updateModel(); // Just update the model
@@ -301,16 +382,12 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 		 */
 	@Override
 	protected void setEnabledComponents(boolean enabled) {
-		for (int countCheckBox = 0 ; countCheckBox < m_checkboxes.length ; ++countCheckBox) {
-			m_checkboxes[countCheckBox].setEnabled(enabled);
+			setEnabledOrDisabledComponents(enabled);
 		}
-		
-	}
 
 	@Override
 	public void setToolTipText(String text) {
-		// TODO Auto-generated method stub
-		
+		// TODO Auto-generated method stub	
 	}
 	
 		/**
@@ -330,6 +407,17 @@ public class DialogComponentCheckBoxGroupReferenced extends DialogComponent impl
 		} catch (InvalidSettingsException e) {
 			e.printStackTrace();
 		}
+	}
+
+		/**
+		 * {@inheritDoc}
+		 */
+	@Override
+	public void setEnabledOrDisabledComponents(boolean value) {
+		m_resetBtn.setEnabled(value);
+		
+		for(JCheckBox checkbox: m_checkboxes)
+			checkbox.setEnabled(value);
 	}
 
 }

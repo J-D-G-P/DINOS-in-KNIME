@@ -16,9 +16,11 @@ import org.knime.core.node.defaultnodesettings.SettingsModelNumber;
 	 * This class adds the option of a button to reset
 	 * the spinner to a value defined as default
 	 * 
-	 * Note: It is arbitrary i could extend from this
+	 * Note: It is arbitrary i could extend from DialogComponentNumber
 	 * class but not from DialogComponentCheckBoxGroupReferenced
 	 * or DialogComponentStringSelection.
+	 * 
+	 * @author Jonathan David González Pereda, CUJAE
 	 */
 
 public class DialogComponentNumberResetable extends DialogComponentNumber implements ReseatableDialogComponent {
@@ -53,6 +55,15 @@ public class DialogComponentNumberResetable extends DialogComponentNumber implem
 	public void resetToDefault() {
 		getSpinner().setValue( resetValue );
 		updateComponent();
+	}
+
+		/**
+		 * {@inheritDoc}
+		 */
+	@Override
+	public void setEnabledOrDisabledComponents(boolean value) {
+		m_button.setEnabled(value);
+		getSpinner().setEnabled(value);
 	}
 
 }

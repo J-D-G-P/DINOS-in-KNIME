@@ -2,13 +2,13 @@ package cu.edu.cujae.daf.knime.nodes.numeric;
 
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeDialog;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
-import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.DINOS_NODE;
 
 /**
- * Configuration interface for nominal subgroup discovery,
- * AKA a String as target
+ * Configuration interface for numeric subgroup discovery in {@link DinosNumericSubgroupDiscoveryNodeModel},
+ * AKA a Number as target
  *
- * Doesn't have any extra options, it just filters strings
+ * Doesn't have any extra options, it just filters numbers
  * as targets as provided by the workflow
  * 
  * @author Jonathan David González Pereda, CUJAE
@@ -24,6 +24,6 @@ public class DinosNumericSubgroupDiscoveryNodeDialog extends GenericDinosKnimeDi
 	protected GenericDinosKnimeWorkflow getInstance() { return NumericDinosKnimeWorkflow.INSTANCE_NUMERIC; }
 
 	@Override
-	protected NODES_TYPES getMode() { return NODES_TYPES.DISCOVERY; }
+	protected DINOS_NODE getMode() { return DINOS_NODE.DISCOVERY; }
 	
 }

@@ -4,6 +4,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.knime.core.data.BooleanValue;
@@ -23,6 +25,7 @@ import org.knime.core.node.BufferedDataTable;
 import org.knime.core.node.ExecutionContext;
 
 import cu.edu.cujae.daf.context.Configuration;
+import cu.edu.cujae.daf.context.FixedVariableInfo;
 import cu.edu.cujae.daf.context.dataset.Attribute;
 import cu.edu.cujae.daf.context.dataset.CENSORED$;
 import cu.edu.cujae.daf.context.dataset.Dataset;
@@ -114,7 +117,7 @@ public class KnimeTableToDinosDataset {
 					// Check if it is the censoring indicator
 				else if (columnNames[count].equals(censoring[1]))
 				{	attributes[count] = new CandidateAttribute(columnNames[count] , CENSORED$.MODULE$ , false, false, -1, 0, 0, null, censoring[2]) ;	survivalRelated = true;
-				validateCensor( censoring[2] , currentColumnDomain, columnNames[count] , identifier);
+				validateCensorIndicator( censoring[2] , currentColumnDomain, columnNames[count] , identifier);
 				}
 			}
 			
@@ -167,7 +170,7 @@ public class KnimeTableToDinosDataset {
 		countVariables = countAttributes + countTargets;
 		
 		// * PART 2: CREATE INSTANCES *
-		exec.setProgress( 0, GenericDinosKnimeWorkflow.MESSAGE_CREATINGINSTANCES );
+		exec.setProgress( 0, GenericDinosKnimeWorkflow.MESSAGE_CREATING_INSTANCES );
 		
 		CloseableRowIterator rows = table.iterator();
 		LinkedList<Instance> instances = new LinkedList();
@@ -248,7 +251,7 @@ public class KnimeTableToDinosDataset {
 	    // * PART 3: CREATE ATTRIBUTES *
 	    // Create attributes in the way datasets need it
 	    // from candidate attributes
-		exec.setProgress( 0, GenericDinosKnimeWorkflow.MESSAGE_CREATINGATTRIBUTES);
+		exec.setProgress( 0, GenericDinosKnimeWorkflow.MESSAGE_CREATING_ATTRIBUTES);
 		Attribute[] finalAttributes = new Attribute[countAttributes + countTargets];
 		int loopAttributes = 0;
 		while(loopAttributes < attributes.length) {
@@ -292,46 +295,59 @@ public class KnimeTableToDinosDataset {
 	        exec.checkCanceled();
 		}
 		
+			// Finally, inform of progress and create the dataset
 		exec.setProgress( 0, GenericDinosKnimeWorkflow.MESSAGE_READY);
 		return Dataset.apply(finalAttributes, toInstanceArray(instances) );
 
 		}
 
 
-			private static void validateCensor(
-					final String indicator,
-					final DataColumnDomain currentColumnDomain,
-					final String name,
-					String identifier) {
-
-				if ( identifier.equals(GenericDinosKnimeWorkflow.ID_STRING) ) {
-					if ( !currentColumnDomain.getValues().contains( new StringCell(indicator) ) )
-						throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") does not exist for the column \"" + name + "\" of type String" );
-				} 
-				else if ( identifier.equals(GenericDinosKnimeWorkflow.ID_INT) ) {
-					var lower = ( (IntCell) currentColumnDomain.getLowerBound() ).getIntValue();
-					var upper = ( (IntCell) currentColumnDomain.getUpperBound() ).getIntValue();
-					int value = 0;
-					boolean formatError= false;
-					
-					try {value = Integer.parseInt(indicator); }
-					catch (NumberFormatException e) { formatError = true; }
-					if ( formatError )
-						throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") for the chosen column \"" + name + "\" of type Int is not a valid number" );
-					if ( value < lower || value > upper )
-						throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") is outside the range of values [ " + lower + " ; " + upper + " ] for the column \"" + name + "\" of type Int" );
-				}
-				else if ( identifier.equals(GenericDinosKnimeWorkflow.ID_BOOL) ) {
-					
-					if(
-						!indicator.equals( GenericDinosKnimeWorkflow.BOOL_FALSE_TEXT ) &&
-						!indicator.equals( GenericDinosKnimeWorkflow.BOOL_TRUE_TEXT )
-					)
-						throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") for the chosen column \"" + name + "\" of type Boolean is neither \"" + GenericDinosKnimeWorkflow.BOOL_FALSE_NUM + "\" or \" " + GenericDinosKnimeWorkflow.BOOL_FALSE_NUM + "\"" );
-				}
-		
+			/**
+			 * See if the chosen value for the censor exists for the chosen column
+			 * 
+			 * @param indicator Value to use as indicator
+			 * @param currentColumnDomain Column to check the indicator
+			 * @param name Name of column
+			 * @param identifier Identifier of column
+			 */
+		private static void validateCensorIndicator(
+				final String indicator,
+				final DataColumnDomain currentColumnDomain,
+				final String name,
+				String identifier) {
+	
+				// String
+			if ( identifier.equals(GenericDinosKnimeWorkflow.ID_STRING) ) {
+				if ( !currentColumnDomain.getValues().contains( new StringCell(indicator) ) )
+					throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") does not exist for the column \"" + name + "\" of type String" );
+			} 
+				// Integer
+			else if ( identifier.equals(GenericDinosKnimeWorkflow.ID_INT) ) {
+				var lower = ( (IntCell) currentColumnDomain.getLowerBound() ).getIntValue();
+				var upper = ( (IntCell) currentColumnDomain.getUpperBound() ).getIntValue();
+				int value = 0;
+				boolean formatError= false;
+				
+				try {value = Integer.parseInt(indicator); }
+				catch (NumberFormatException e) { formatError = true; }
+				if ( formatError )
+					throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") for the chosen column \"" + name + "\" of type Int is not a valid number" );
+				if ( value < lower || value > upper )
+					throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") is outside the range of values [ " + lower + " ; " + upper + " ] for the column \"" + name + "\" of type Int" );
+			}
+				// Boolean
+			else if ( identifier.equals(GenericDinosKnimeWorkflow.ID_BOOL) ) {
+				
+				if(
+					!indicator.equals( GenericDinosKnimeWorkflow.BOOL_FALSE_TEXT ) &&
+					!indicator.equals( GenericDinosKnimeWorkflow.BOOL_TRUE_TEXT )
+				)
+					throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") for the chosen column \"" + name + "\" of type Boolean is neither \"" + GenericDinosKnimeWorkflow.BOOL_FALSE_NUM + "\" or \" " + GenericDinosKnimeWorkflow.BOOL_FALSE_NUM + "\"" );
+			}
+	
 	}
 
+	
 			/**
 			 * Helper function, for getting the possible values of a String column
 			 * 
@@ -350,20 +366,7 @@ public class KnimeTableToDinosDataset {
 		}
 		return answer;
 	}
-		
-		@Deprecated
-		// TODO remove
-		private static String[] setOfStringCellsToArray(
-				Set<DataCell> values) {
-		Iterator <DataCell> iterator = values.iterator();
-		String [] answer = new String[values.size()];
-		int position = 0;
-		while( iterator.hasNext() ) {
-			answer[position] = ( (StringValue) iterator.next() ).getStringValue();
-			++ position;
-		}
-		return answer;
-	}
+
 		
 			/**
 			 * Helper function, for getting the strings of the values of a set to an array
@@ -389,7 +392,7 @@ public class KnimeTableToDinosDataset {
 			 * 
 			 * @param linkedlist The list of possible values
 			 * 
-			 * @return An array with the elemetns of the list
+			 * @return An array with the elements of the list
 		 	*/
 		private static Instance[] toInstanceArray(
 				LinkedList<Instance> linkedlist) {
@@ -405,25 +408,34 @@ public class KnimeTableToDinosDataset {
 		}
 
 		/**
-		 * Obtain a Configuration object for use in DINOS
+		 * Get a Configuration object for use in DINOS
 		 * 
 		 * @param trials How many trials to use in the algorithm
-		 * @param collectItarationMetrics Wheter to collecto or not metrics results after each iteration
+		 * @param collectItarationMetrics Whether to collect  metrics results or not after each iteration
 		 * @param settings With an even amount of elements where each is assumed to alternate in being the name of the hyperparameter and a string which can be parsed to double for it's value
 		 * 
-		 * @return An array with the elemetns of the list
+		 * @return An array with the elements of the list
 	 	*/
 		
 		@SuppressWarnings({ "unchecked" })
 		public static Configuration ArraySettingsToDinosConfig(
 				int trials,
 				boolean collectItarationMetrics,
-				java.lang.String[] settings) {
+				java.lang.String[] settings,
+				List<String> fixedVars,
+				Dataset dataset) {
 			
 			@SuppressWarnings("rawtypes")
 		LinkedHashMap map = new LinkedHashMap<String, Double>(); // Have this ready
+		
+		FixedVariableInfo fixedInfo = null;
+		
+		if(fixedVars == null)
+			fixedInfo = FixedVariableInfo.createEmpty();
+		else
+			fixedInfo = FixedVariableInfo.createFixedVariableInfo(scala.collection.immutable.Set.from(CollectionConverters.ListHasAsScala(fixedVars).asScala() ) , dataset );
 
-			// Remember, even positions are names, even are values that can be parsed to double
+			// Remember, odd positions are names, even are values that can be parsed to double
 		for( int count = 0; count < settings.length ; ++count  ) {
 			map.put(settings[count] , Double.parseDouble( settings[++count] ) );
 		}
@@ -431,7 +443,8 @@ public class KnimeTableToDinosDataset {
 			return new Configuration(
 					trials,
 					collectItarationMetrics,
-					scala.collection.immutable.Map.from(CollectionConverters.MapHasAsScala(map).asScala()) ); // Use this scala converter
+					scala.collection.immutable.Map.from(CollectionConverters.MapHasAsScala(map).asScala()),
+					fixedInfo);
 
 		}
 

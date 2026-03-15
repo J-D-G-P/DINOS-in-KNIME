@@ -35,6 +35,8 @@ import cu.edu.cujae.daf.core.Algorithm;
 import cu.edu.cujae.daf.core.DiscoveryMode;
 import cu.edu.cujae.daf.core.NumericMode$;
 import cu.edu.cujae.daf.core.Subgroup;
+import cu.edu.cujae.daf.formatter.FormatSymbols;
+import cu.edu.cujae.daf.formatter.SubgroupFormatter;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeModel;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
 import cu.edu.cujae.daf.utils.SubgroupParser;
@@ -54,6 +56,16 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 	
 		// The Helper Instance
 	public static final DiscoveryMode MODE_NUMERIC = NumericMode$.MODULE$;
+	
+		// Name of columns to show in result tables
+	public static final String RESULT_MEAN = "Mean";
+	public static final String RESULT_MEAN_DIFF = addDif(RESULT_MEAN);
+	public static final String RESULT_MEDIAN = "Median";
+	public static final String RESULT_MEDIAN_DIFF = addDif(RESULT_MEDIAN);
+	public static final String RESULT_STD = "Standard Deviation";
+	public static final String RESULT_STD_DIFF = addDif(RESULT_STD);
+	public static final String RESULT_DIFF = "Difference";
+	private static final String addDif(String string) {return string + " " + RESULT_DIFF;}
 	
 	public Class<? extends DataValue> getThenTargetType() {return IntervalValue.class;}
 	
@@ -80,32 +92,32 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		// Constructor, nothing to initialize
 	private NumericDinosKnimeWorkflow() {}
 
-	@Override
-	public Map< String , Map < String , String[] > > getExclusiveSettings() {
-
-		LinkedHashMap<String, String[]> auxiliar = new LinkedHashMap<String, String[]>();
-		Map< String , Map < String , String[] > > result = new LinkedHashMap<String, Map<String, String[]>>();
-
-		 result.put( INFO_COMPONENTS[0]._1, null );
-		 
-		 result.put( INFO_COMPONENTS[1]._1, null );
-		 
-		 result.put( INFO_COMPONENTS[2]._1, null );
-
-		 auxiliar = new LinkedHashMap<String, String[]>();
-		 auxiliar.put("MeanDifference" , new String[]{"MeanDifferenceAVariable"});
-		 auxiliar.put("MedianDifference" , new String[]{"MedianDifferenceAVariable"});
-		 result.put( INFO_COMPONENTS[3]._1, auxiliar);
-		 
-		 auxiliar = new LinkedHashMap<String, String[]>();
-		 auxiliar.put("MADRangeSelector" , new String[]{"MADRangeFactor", "MADRangeBVariable"} );
-		 
-		 result.put( INFO_COMPONENTS[4]._1 , auxiliar );
-		 
-		 result.put( INFO_COMPONENTS[5]._1 , null );
-		
-		return new LinkedHashMap<String, Map<String, String[]>>();
-	}
+//	@Override
+//	public Map< String , Map < String , String[] > > getExclusiveSettings() {
+//
+//		LinkedHashMap<String, String[]> auxiliar = new LinkedHashMap<String, String[]>();
+//		Map< String , Map < String , String[] > > result = new LinkedHashMap<String, Map<String, String[]>>();
+//
+//		 result.put( INFO_COMPONENTS[0]._1, null );
+//		 
+//		 result.put( INFO_COMPONENTS[1]._1, null );
+//		 
+//		 result.put( INFO_COMPONENTS[2]._1, null );
+//
+//		 auxiliar = new LinkedHashMap<String, String[]>();
+//		 auxiliar.put("MeanDifference" , new String[]{"MeanDifferenceAVariable"});
+//		 auxiliar.put("MedianDifference" , new String[]{"MedianDifferenceAVariable"});
+//		 result.put( INFO_COMPONENTS[3]._1, auxiliar);
+//		 
+//		 auxiliar = new LinkedHashMap<String, String[]>();
+//		 auxiliar.put("MADRangeSelector" , new String[]{"MADRangeFactor", "MADRangeBVariable"} );
+//		 
+//		 result.put( INFO_COMPONENTS[4]._1 , auxiliar );
+//		 
+//		 result.put( INFO_COMPONENTS[5]._1 , null );
+//		
+//		return new LinkedHashMap<String, Map<String, String[]>>();
+//	}
 	
 
 		@Override
@@ -113,6 +125,9 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				// Store the column names and types
 			List<DataColumnSpec> outputSpecs = columnSpecs(dinos, dataset);
 	
+				// Mode Helper
+			var mode = dataset.modeHelper();
+			
 				// Create the new table
 			BufferedDataContainer container = exec.createDataContainer( new DataTableSpec( outputSpecs.toArray(new DataColumnSpec[outputSpecs.size()]) ) );
 			
@@ -127,8 +142,10 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				List<DataCell> cells = new ArrayList<>();
 				Individual currentSubgroup = subgroupsList[count].typePattern();
 				NumericMatrix currentData = (NumericMatrix) currentSubgroup.contingencyMatrix();
+				
 				// Description of Subgroup
-			cells.add(new StringCell( subgroupConditionsToString(dataset, currentSubgroup) ) );
+			cells.add( new StringCell( mode.bodyString(currentSubgroup, dataset) ) );
+			
 				// If Target is Included or Not
 			var inOrNot = BooleanCell.TRUE;
 			if (currentSubgroup.mainClass().positive() ) { inOrNot = BooleanCell.TRUE ; } else { inOrNot = BooleanCell.FALSE ; }
@@ -137,23 +154,32 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			NumericProperty target = (NumericProperty) currentSubgroup.mainClass();
 			cells.add( new IntervalCell(target.lowerBound() , target.upperBound() , true , true) );
 
+				// Full Subgroup Description
+			cells.add( new StringCell( mode.fullRuleString(currentSubgroup, dataset) ) );
+			
 				// True Positives
 			cells.add( new IntCell( currentSubgroup.contingencyMatrix().tp() ) );
+			
 				// Coverage
 			cells.add( new IntCell( currentSubgroup.contingencyMatrix().coverage() ) );
+			
 				// Mean and difference
 			cells.add( new DoubleCell( currentData.meanTp() ) );
-			cells.add( new DoubleCell( Math.abs( currentData.meanTp() - numericDataset.getMean() ) ) );
+			cells.add( new DoubleCell( ( currentData.meanTp() - numericDataset.getMean() ) ) );
+			
 				// Median and difference
 			cells.add( new DoubleCell( currentData.medianTp() ) );
-			cells.add( new DoubleCell( Math.abs( currentData.medianTp() - numericDataset.getMedian() ) ) );
+			cells.add( new DoubleCell( ( currentData.medianTp() - numericDataset.getMedian() ) ) );
+			
 				// Standard Deviation and Difference
 			double stdevSubgroup = Math.sqrt( currentData.varianceTp() );
 			double stdevDataset = Math.sqrt( numericDataset.getVariance() );
 			cells.add( new DoubleCell( stdevSubgroup ) );
-			cells.add( new DoubleCell( Math.abs(stdevSubgroup - stdevDataset) ) );
+			cells.add( new DoubleCell( (stdevSubgroup - stdevDataset) ) );
+			
 				// Now, add a column for each metric
 			addMetricCellsToRow(cells, dinos, currentSubgroup);
+			
 				// Create the row and add it
 			DataRow row = new DefaultRow( "Row" + count , cells);
 			//System.out.print(row.toString());
@@ -173,24 +199,26 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				// Store the columns of the output column
 			List<DataColumnSpec> outputSpecs = new ArrayList<>();
 				// Description of Subgroup
-			outputSpecs.add( new DataColumnSpecCreator("Subgroup", StringCell.TYPE).createSpec() );
-					// If Target is Included or Not
-			outputSpecs.add( new DataColumnSpecCreator("In", BooleanCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_SUBGROUP_BODY, StringCell.TYPE).createSpec() );
+				// If Target is Included or Not
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_IN, BooleanCell.TYPE).createSpec() );
 				// Target Variable
-			outputSpecs.add( new DataColumnSpecCreator("Class (" + dataset.classAtt().name() +  ")", IntervalCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_CLASS +" (" + dataset.classAtt().name() +  ")", IntervalCell.TYPE).createSpec() );
+				// Full Subgroup Description
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_SUBGROUP_FULL, StringCell.TYPE).createSpec() );
 				// True Positives
-			outputSpecs.add( new DataColumnSpecCreator("True Positives", IntCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_TP, IntCell.TYPE).createSpec() );
 				// Coverage
-			outputSpecs.add( new DataColumnSpecCreator("Covered", IntCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_COV, IntCell.TYPE).createSpec() );
 				// Mean and difference
-			outputSpecs.add( new DataColumnSpecCreator("Mean", DoubleCell.TYPE).createSpec() );
-			outputSpecs.add( new DataColumnSpecCreator("Mean Difference", DoubleCell.TYPE).createSpec() );	
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_MEAN, DoubleCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_MEAN_DIFF, DoubleCell.TYPE).createSpec() );	
 				// Median and difference
-			outputSpecs.add( new DataColumnSpecCreator("Median", DoubleCell.TYPE).createSpec() );
-			outputSpecs.add( new DataColumnSpecCreator("Median Difference", DoubleCell.TYPE).createSpec() );	
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_MEDIAN, DoubleCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_MEDIAN_DIFF, DoubleCell.TYPE).createSpec() );	
 				// Standard Deviation and Difference
-			outputSpecs.add( new DataColumnSpecCreator("Standard Deviation", DoubleCell.TYPE).createSpec() );
-			outputSpecs.add( new DataColumnSpecCreator("Standard Deviation Difference", DoubleCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_STD, DoubleCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_STD_DIFF, DoubleCell.TYPE).createSpec() );
 			
 					// Now, add a column for each metric
 			addMetricsToCandidateRow(outputSpecs, dinos);
@@ -240,15 +268,5 @@ public class NumericDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			
 		}
 
-		@Override
-		protected String printThenCell( DataRow row , int inPosition, int thenPosition, HashSet<String> targets) {
-			
-			String inText = printInCell(inPosition, row, targets);
-			var cell = ( (IntervalCell) row.getCell(thenPosition) );
-			String thenText = SubgroupParser.interval(cell.getLeftBound(), cell.getRightBound());
-			
-			return
-					SubgroupParser.classThen() + SubgroupParser.whiteSpace() + inText + thenText;
-		}
 	
 }

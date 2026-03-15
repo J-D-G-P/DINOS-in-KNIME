@@ -64,6 +64,7 @@ import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import org.apache.xmlbeans.impl.xb.xsdschema.WhiteSpaceDocument.WhiteSpace.Value;
 import org.knime.core.node.FlowVariableModel;
 import org.knime.core.node.FlowVariableModelButton;
 import org.knime.core.node.InvalidSettingsException;
@@ -76,6 +77,8 @@ import org.knime.core.node.util.DefaultStringIconOption;
 import org.knime.core.node.util.StringIconListCellEditor;
 import org.knime.core.node.util.StringIconListCellRenderer;
 import org.knime.core.node.util.StringIconOption;
+
+import cu.edu.cujae.daf.core.ComponentInfo;
 
 /**
  * Triple Ughh...
@@ -102,57 +105,88 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
     private final String[] reference;
     
     	@SuppressWarnings("unused")
-	private final String defaultValue; 
+	private final String defaultValue;
    
     private final int defaultIndex;
 
     private final JLabel m_label;
     
     private final JButton m_resetBtn;
+    
+    private final String[] toolTips;
 
     private final FlowVariableModelButton m_fvmButton;
     
     private int lastSavedIndex;
 
-    /**
-     * Constructor that puts label and combobox into panel. It expects the user
-     * to make a selection, thus, at least one item in the list of selectable
-     * items is required. When the settings are applied, the model stores one of
-     * the strings of the provided list.
-     *
-     * @param stringModel the model that stores the value for this component.
-     * @param label label for dialog in front of combobox
-     * @param list list of items for the combobox
-     */
+		/**
+		 * Default constructor for several checkboxes,
+		 * referencing a single StringSettingsModel and creating empty tooltips
+		 * for every checkbox, also creating empty items for the tooltip
+		 * 
+		 * @param stringModel the model that stores the value for this component.
+		 * @param label label for dialog in front of combobox
+		 * @param references The string actually saved by the combobox
+		 * @param defaultValue Reference value to turn the combobox when using the reset button
+		 * @param list Items for the combobox
+		 */
     public DialogComponentStringSelectionReferenced(
-            final SettingsModelString stringModel, final String label,
+            final SettingsModelString stringModel,
+            final String label,
             final String[] reference,
             final String defaultValue,
             final String... list) {
+        this(stringModel, label, reference, defaultValue, list, new String[reference.length]);
+    }
+    
+	    /**
+	     * Constructor that puts label and combobox into panel. It expects the user
+	     * to make a selection, thus, at least one item in the list of selectable
+	     * items is required. When the settings are applied, the model stores one of
+	     * the strings of the provided list.
+	     *
+		 * @param stringModel the model that stores the value for this component.
+		 * @param label label for dialog in front of combobox
+		 * @param references The string actually saved by the combobox
+		 * @param defaultValue Reference value to turn the combobox when using the reset button
+		 * @param list Items for the combobox
+		 * @param toolTips Messages for each reference shown when hovering over the combobox
+		 */
+    public DialogComponentStringSelectionReferenced(
+            final SettingsModelString stringModel,
+            final String label,
+            final String[] reference,
+            final String defaultValue,
+            final String[] list,
+            final String[] toolTips) {
         this(stringModel, label, reference, defaultValue,
-                DefaultStringIconOption.createOptionArray(Arrays.asList(list)));
+                DefaultStringIconOption.createOptionArray(Arrays.asList(list)), toolTips);
     }
 
-    /**
-     * Constructor that puts label and combobox into panel. It expects the user
-     * to make a selection, thus, at least one item in the list of selectable
-     * items is required. When the settings are applied, the model stores one of
-     * the strings of the provided list.
-     *
-     * @param stringModel the model that stores the value for this component.
-     * @param label label for dialog in front of combobox
-     * @param list list (not empty) of strings (not null) for the combobox
-     *
-     * @throws NullPointerException if one of the strings in the list is null
-     * @throws IllegalArgumentException if the list is empty or null.
-     */
+	    /**
+	     * Constructor that puts label and combobox into panel. It expects the user
+	     * to make a selection, thus, at least one item in the list of selectable
+	     * items is required. When the settings are applied, the model stores one of
+	     * the strings of the provided list.
+	     *
+		 * @param stringModel the model that stores the value for this component.
+		 * @param references The string actually saved by the combobox
+		 * @param defaultValue Reference value to turn the combobox when using the reset button
+		 * @param list Items for the combobox
+		 * @param toolTips Messages for each reference shown when hovering over the combobox
+	     * @param list list (not empty) of strings (not null) for the combobox
+	     *
+	     * @throws NullPointerException if one of the strings in the list is null
+	     * @throws IllegalArgumentException if the list is empty or null.
+	     */
     public DialogComponentStringSelectionReferenced(
             final SettingsModelString stringModel, final String label,
             final String[] reference,
             final String defaultValue,
-            final Collection<String> list) {
+            final Collection<String> list,
+            final String[] toolTips) {
         this(stringModel, label, reference, defaultValue,
-                DefaultStringIconOption.createOptionArray(list));
+                DefaultStringIconOption.createOptionArray(list), toolTips);
     }
 
     /**
@@ -162,7 +196,8 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
      * the strings of the provided list.
      *
      * @param stringModel the model that stores the value for this component.
-     * @param label label for dialog in front of combobox
+     * @param references The string actually saved by the combobox
+     * @param defaultValue Reference value to turn the combobox when using the reset button
      * @param list list (not empty) of strings (not null) for the combobox
      * @param editable true if the user should be able to add a value to the
      *  combo box
@@ -174,8 +209,8 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
             final SettingsModelString stringModel, final String label,
             final String[] reference,
             final String defaultValue,
-            final Collection<String> list, final boolean editable) {
-        this(stringModel, label, reference , defaultValue, list, editable, null);
+            final Collection<String> list, final boolean editable, final String[] toolTips) {
+        this(stringModel, label, reference , defaultValue, list, editable, null, toolTips);
     }
 
     /**
@@ -186,22 +221,26 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
      *
      * @param stringModel the model that stores the value for this component.
      * @param label label for dialog in front of combobox
+     * @param references The string actually saved by the combobox
+     * @param defaultValue Reference value to turn the combobox when using the reset button
      * @param list list (not empty) of strings (not null) for the combobox
-     * @param editable true if the user should be able to add a value to the
-     *        combo box
+     * @param editable true if the user should be able to add a value to the combo box
      * @param fvm model exposed to choose from available flow variables
+     * @param toolTips Messages for each reference shown when hovering over the combobox
      *
      * @throws NullPointerException if one of the strings in the list is null
      * @throws IllegalArgumentException if the list is empty or null.
      */
     public DialogComponentStringSelectionReferenced(
-            final SettingsModelString stringModel, final String label,
+            final SettingsModelString stringModel,
+            final String label,
             final String[] reference,
             final String defaultValue,
             final Collection<String> list, final boolean editable,
-            final FlowVariableModel fvm) {
+            final FlowVariableModel fvm,
+            final String[] toolTips) {
         this(stringModel, label, reference, defaultValue,
-                DefaultStringIconOption.createOptionArray(list), fvm);
+                DefaultStringIconOption.createOptionArray(list), fvm, toolTips);
         	// Validate this
         m_combobox.setEditable(editable);
         setLastSavedIndex(stringModel);
@@ -257,16 +296,18 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
      * @param list list (not empty) of {@link StringIconOption}s for
      * the combobox. The text of the selected component is stored in the
      * {@link SettingsModelString}.
+     * @param toolTips Messages for each reference shown when hovering over the combobox
      *
      * @throws NullPointerException if one of the strings in the list is null
      * @throws IllegalArgumentException if the list is empty or null.
      */
     public DialogComponentStringSelectionReferenced(
-            final SettingsModelString stringModel, final String label,
+            final SettingsModelString stringModel,final String label,
             final String[] reference,
             final String defaultValue,
-            final StringIconOption[] list) {
-        this(stringModel, label, reference, defaultValue, list, null);
+            final StringIconOption[] list,
+            final String[] toolTips) {
+        this(stringModel, label, reference, defaultValue, list, null, toolTips);
     }
 
     /**
@@ -281,6 +322,7 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
      *        the combobox. The text of the selected component is stored in the
      *        {@link SettingsModelString}.
      * @param fvm model exposed to choose from available flow variables
+     * @param toolTips Messages for each reference shown when hovering over the combobox
      *
      * @throws NullPointerException if one of the strings in the list is null
      * @throws IllegalArgumentException if the list is empty or null.
@@ -289,10 +331,12 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
             final SettingsModelString stringModel, final String label,
             final String[] reference,
             final String defaultValue,
-            final StringIconOption[] list, final FlowVariableModel fvm) {
+            final StringIconOption[] list, final FlowVariableModel fvm, final String[] toolTips) {
         super(stringModel);
         
-        this.reference = validateReference(reference, list);
+        	// The amount of references, labels and tooltips must be the same
+        this.reference = validateReference(reference, list, toolTips);
+        this.toolTips = toolTips;
         
         if ((list == null) || (list.length == 0)) {
             throw new IllegalArgumentException("Selection list of options "
@@ -322,7 +366,11 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
 			}
 		} );
         getComponentPanel().add( m_resetBtn );
-
+        
+        	// When the selected item on the combobox changes,
+        	// update the model with the respective reference
+        	// and the tooltip message
+        	// TODO Is it possible to assign a tooltip to each combobox element instead of changing it after the user choses an item?
         m_combobox.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(final ItemEvent e) {
@@ -330,6 +378,7 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
                     // if a new item is selected update the model
                     try {
                         updateModel();
+                        updateToolTip();
                     } catch (final InvalidSettingsException ise) {
                         // ignore it here
                     }
@@ -344,6 +393,9 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
                 updateComponent();
             }
         });
+        
+        	// Set the message for the default / last saved element
+        updateToolTip();
 
         // add variable editor button if so desired
         if (fvm != null) {
@@ -364,9 +416,49 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
         
         //call this method to be in sync with the settings model
         updateComponent();
-    }
+    } 
 
-    	/**
+    		/**
+    		 *  Helper / Constructor Wrapper for getting a component of this type from
+			 *  a {@link ComponentInfo} item, from it gets the references, the checkbox
+			 *  labels and the hovering tooltip descriptions
+    		 * 
+    		 * @param stringModel the model that stores the value for this component.
+    		 * @param label label for dialog in front of combobox
+    		 * @param referencesAndLabels Objects from where to get  components names, references, and descriptions
+    		 * @param defaultValue Reference value to turn the combobox when using the reset button
+    		 * 
+    		 * @return A component from this type with the parameters of the information given
+    		 */
+    	public static DialogComponentStringSelectionReferenced DialogComponentStringSelectionReferencedFromComponentInfo(
+    			final SettingsModelString stringModel,
+    			final String label,
+    			ComponentInfo[] referencesAndLabels,
+    			String defaultValue) {
+
+    		int size = referencesAndLabels.length;
+    		
+    		String[] reference = new String[size];
+    		String[] list = new String[size];
+    		String[] description = new String[size];
+    		
+    		for(int count = 0 ; count < referencesAndLabels.length ; ++count) {
+    			ComponentInfo current = referencesAndLabels[count];
+    			
+    			reference[count] = current.shortName();
+    			list[count] = current.verboseName();
+    			description[count] = current.description();
+    		}
+    		
+    		return new DialogComponentStringSelectionReferenced(stringModel, label, reference, defaultValue, list, description);
+	}
+
+    		/** Change the message of the combobox to describe the currently selected element */
+		private void updateToolTip() {
+			setToolTipText( toolTips[m_combobox.getSelectedIndex()] );
+		}
+    	
+		/**
     	 * Makes sure that the given default String
     	 * 
     	 * @param defaultValue Value to validate
@@ -402,20 +494,25 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
 		 * 
 		 * @param reference The array with the references
 		 * @param list The labels for the checkbox
+		 * @param toolTips Messages for each reference shown when hovering over the combobox
 		 * 
 		 * @return The array provided as references
 		 */
-	private String[] validateReference(String[] reference, StringIconOption[] list) {
+	private String[] validateReference(String[] reference, StringIconOption[] list, String[] toolTips) {
 		if(reference.length != list.length) {
-			throw new IllegalArgumentException("Tried to create a referenced combobox with differing size of reference and shown values");
-			
+			throw new IllegalArgumentException("Tried to create a referenced combobox with differing size of reference and shown values");	
 		}
+		
+		if(reference.length != toolTips.length) {
+			throw new IllegalArgumentException("Tried to create a referenced combobox with differing size of reference and tool tips");	
+		}
+		
 		return reference;
 	}
 
-	/**
-     * {@inheritDoc}
-     */
+		/**
+	     * {@inheritDoc}
+	     */
     @Override
     protected void updateComponent() {
     	
@@ -467,9 +564,9 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
         }
     }
 
-    /**
-     * Transfers the current value from the component into the model.
-     */
+	    /**
+	     * Transfers the current value from the component into the model.
+	     */
     private void updateModel() throws InvalidSettingsException {
 
         if (m_combobox.getSelectedItem() == null) {
@@ -514,7 +611,7 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
      */
     @Override
     protected void setEnabledComponents(final boolean enabled) {
-        m_combobox.setEnabled(enabled);
+    	// Eny use setEnabledOrDisabledComponents
     }
 
     /**
@@ -534,8 +631,17 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
     public void setToolTipText(final String text) {
         m_label.setToolTipText(text);
         m_combobox.setToolTipText(text);
+        
+        System.out.println("ToolTip: " + text);
     }
 
+    /**
+     * Try to find the reference string that with which the combobox was last save
+     * 
+     * @param setting Model from where to retrive the saved string
+     * 
+     * @throws IllegalArgumentException If the reference wasn't found
+     */
     private void setLastSavedIndex(final SettingsModelString setting) {
     	
     	String text = setting.getStringValue();
@@ -561,6 +667,13 @@ public final class DialogComponentStringSelectionReferenced extends DialogCompon
 		}
     }
     
-
-    
+    	/**
+    	 * {@inheritDoc}
+    	 */
+    @Override
+    public void setEnabledOrDisabledComponents(boolean value) {
+		m_combobox.setEnabled(value);
+		m_resetBtn.setEnabled(value);
+		m_label.setEnabled(value);
+    }
 }

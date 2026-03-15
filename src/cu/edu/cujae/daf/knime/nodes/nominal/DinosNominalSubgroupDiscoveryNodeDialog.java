@@ -2,10 +2,10 @@ package cu.edu.cujae.daf.knime.nodes.nominal;
 
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeDialog;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
-import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.DINOS_NODE;
 
 /**
- * Configuration interface for nominal subgroup discovery,
+ * Configuration interface for nominal subgroup discovery in {@link DinosNominalSubgroupDiscoveryNodeModel},
  * AKA a String as target
  *
  * Doesn't have any extra options, it just filters strings
@@ -24,6 +24,6 @@ public class DinosNominalSubgroupDiscoveryNodeDialog extends GenericDinosKnimeDi
 	protected GenericDinosKnimeWorkflow getInstance() { return NominalDinosKnimeWorkflow.INSTANCE_NOMINAL; }
 
 	@Override
-	protected NODES_TYPES getMode() { return NODES_TYPES.DISCOVERY; }
+	protected DINOS_NODE getMode() { return DINOS_NODE.DISCOVERY; }
 	
 }

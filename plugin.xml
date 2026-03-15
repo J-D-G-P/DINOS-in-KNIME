@@ -2,17 +2,17 @@
 <?eclipse version="3.0"?><plugin>
                 
     
-    <!-- This is an example for providing an own category 
+    
       <extension
          point="org.knime.workbench.repository.categories">
       <category
-            description="Category containing my nodes"
+            description="DINOS Subgroup Discovery"
             icon="icons/default.png"
             level-id="myNodes"
             name="My nodes"
-            path="/"/>
+            path="/DINOS Subgroup Discovery/"/>
    </extension>
-   -->
+
                  
     
     <extension point="org.knime.workbench.repository.nodes">
@@ -22,7 +22,7 @@
                         
                 
         
-        <node category-path="/" description="Analytics" factory-class="cu.edu.cujae.daf.knime.DinosyNodeFactory" id="cu.edu.cujae.daf.codification.knime.DinosNodeFactory"/>
+        <node category-path="/" factory-class="cu.edu.cujae.daf.knime.DinosyNodeFactory" id="cu.edu.cujae.daf.codification.knime.DinosNodeFactory"/>
                                                                
                                                                            
                 	
@@ -38,7 +38,7 @@
         
         <!-- DISCOVERY -->
                         
-        <node category-path="/DINOS Subgroup Discovery/Nominal" description="Analytics" factory-class="cu.edu.cujae.daf.knime.nodes.nominal.DinosNominalSubgroupDiscoveryNodeFactory" id="cu.edu.cujae.daf.knime.nodes.nominal.DinosNominalSubgroupDiscoveryNodeFactory"/>
+        <node category-path="/DINOS Subgroup Discovery/Nominal" factory-class="cu.edu.cujae.daf.knime.nodes.nominal.DinosNominalSubgroupDiscoveryNodeFactory" id="cu.edu.cujae.daf.knime.nodes.nominal.DinosNominalSubgroupDiscoveryNodeFactory"/>
                 		
         
         <!-- PARSER -->

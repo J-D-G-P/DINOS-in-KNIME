@@ -4,12 +4,14 @@ import org.knime.core.node.NodeDialogPane;
 import org.knime.core.node.NodeFactory;
 import org.knime.core.node.NodeView;
 
-/**
- * This is an example implementation of the node factory of the
- * "DinosNumericSubgroupDiscovery" node.
- *
- * @author 
- */
+	/**
+	 * Node factory of the {@link DinosNumericSubgroupDiscoveryNodeModel} node
+	 * 
+	 * Doesn't have any extra options, just the standard stuff
+	 * provided by the workflow
+	 *
+	 * @author Jonathan David González Pereda, CUJAE
+	 */
 public class DinosNumericSubgroupDiscoveryNodeFactory 
         extends NodeFactory<DinosNumericSubgroupDiscoveryNodeModel> {
 

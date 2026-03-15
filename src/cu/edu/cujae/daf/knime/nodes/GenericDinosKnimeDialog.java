@@ -1,5 +1,6 @@
 package cu.edu.cujae.daf.knime.nodes;
 
+import java.awt.CheckboxGroup;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -9,16 +10,22 @@ import org.knime.core.node.defaultnodesettings.DefaultNodeSettingsPane;
 import org.knime.core.node.defaultnodesettings.DialogComponent;
 import org.knime.core.node.defaultnodesettings.DialogComponentBoolean;
 import org.knime.core.node.defaultnodesettings.DialogComponentButton;
+import org.knime.core.node.defaultnodesettings.DialogComponentColumnFilter;
 import org.knime.core.node.defaultnodesettings.DialogComponentColumnNameSelection;
+import org.knime.core.node.defaultnodesettings.DialogComponentLabel;
 import org.knime.core.node.defaultnodesettings.DialogComponentNumber;
 import org.knime.core.node.defaultnodesettings.DialogComponentSeed;
 import org.knime.core.node.defaultnodesettings.SettingsModelBoolean;
+import org.knime.core.node.defaultnodesettings.SettingsModelFilterString;
+import org.knime.core.node.defaultnodesettings.SettingsModelString;
 
+import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentCheckBoxGroupReferenced;
 import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentCheckboxWithActionListener;
 import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentNumberResetable;
+import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentStringSelectionReferenced;
 import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentStringsFromSpinnerGroup;
 import cu.edu.cujae.daf.knime.dialogcomponents.ReseatableDialogComponent;
-import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.DINOS_NODE;
 import scala.Tuple4;
 
 /**
@@ -50,44 +57,58 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 		 * 2 - Dataset Extractor
 		 * 3 - Parser
 		 */
-	protected abstract NODES_TYPES getMode();		
+	protected abstract DINOS_NODE getMode();		
 		
 		/** This class will get the workflow helper for this mode */
 	protected abstract GenericDinosKnimeWorkflow getInstance();
-		// Work from this
+	
+		/** Work from this */
 	protected final GenericDinosKnimeWorkflow workflow = getInstance();
-		// Target class, single
+	
+		/** Target class, single */
 	protected DialogComponentColumnNameSelection classCol;
 	
+		/** Description Parser column */
 	protected DialogComponentColumnNameSelection descCol;
 	
+		/** Optional parser column for showing included or not */
 	protected DialogComponentColumnNameSelection inCol;
 	
+		/** Optional parser column for the ELSE part of a rule */
 	protected DialogComponentColumnNameSelection thenCol;
-		// This component add a field for a random seed an a checkbox to define if to use it or not
+	
+		/** This component add a field for a random seed an a checkbox to define if to use it or not */
 	protected DialogComponentSeed seedSelection;
-    	// A button that resets all components in the "component" array
+	
+    	/** A button that resets all components in the "component" array */
 	protected DialogComponentButton resetAllComponentsButton;
-    	// Checkbox that shows whether to use or not the default settings of the workflow
+	
+		/** Column for indicating fixed variables */
+	protected DialogComponentColumnFilter fixedVariables;
+	
+    	/** Checkbox that shows whether to use or not the default settings of the workflow */
 	protected DialogComponentCheckboxWithActionListener useDefaultOrNot;
-    	// Custom components for storing the configurations
-	protected DialogComponent[] components;
+	
+    	/** Custom components for storing the configurations */
+	protected ReseatableDialogComponent[] components;
+	
+	final protected boolean initialDefaultOrNot =   workflow.createUseDefaultOrNot().getBooleanValue();
 
 	
-    	// Constructor, it has been made as modular as possible to easily just extend and replace the necessary parts
+    	/** Constructor, it has been made as modular as possible to easily just extend and replace the necessary parts */
     protected GenericDinosKnimeDialog() {
-  
-        super();
+
+    	super();
         
-        NODES_TYPES mode = getMode();
+        DINOS_NODE mode = getMode();
         
-        if(mode == NODES_TYPES.DISCOVERY) {
+        if(mode == DINOS_NODE.DISCOVERY) {
         	createDiscoveryDialog(this);
         }
-        else if (mode == NODES_TYPES.EXTRACTOR) {
+        else if (mode == DINOS_NODE.EXTRACTOR) {
         	addClassToGeneralTab(this);
         }
-        else if (mode == NODES_TYPES.PARSER) {
+        else if (mode == DINOS_NODE.PARSER) {
         	createParserDialog(this);
         }
     }
@@ -146,7 +167,7 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 	    	addResetAllButtonToComponentsTab(panel);
 	    	
 	    	addComponentsToComponentsTab(panel);
-
+	    	
 	    }
 		
 	    		/** This will add a checkbox for choosing if to use use the default components (true) or just use the default ones for this workflow (false)  */
@@ -169,8 +190,9 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 						// This action is the entire reason of being for the button
 					@Override public void actionPerformed(ActionEvent e) {
 						for(int countComponents = 0 ; countComponents < components.length ; ++ countComponents) {
-							( (ReseatableDialogComponent) components[countComponents] ).resetToDefault(); } } } );
-		    	
+							
+							components[countComponents].resetToDefault(); } } } );
+
 		    	panel.addDialogComponent(resetAllComponentsButton);
 		    	
 		    }
@@ -178,15 +200,17 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 		    	/** This adds the actual components, created by the workflow along with enclosing them in their own group showing their name and internal flow variable*/
     		protected void addComponentsToComponentsTab(GenericDinosKnimeDialog panel) {
 		    	components = workflow.createDialogComponentForAllComponentes();
+		    	boolean enabled = !useDefaultOrNot.isSelected();
 		    		
 		    	for(int count = 0; count < components.length ; ++count) {
 		    		Tuple4<String, String, String, Object> currentInfo = workflow.INFO_CONFIGURABLES[count];
 		    			// In the name show not only the verbose name but also the key short name
 		    		panel.createNewGroup( currentInfo._2() + " (" + currentInfo._1() + ")" );
-		    		panel.addDialogComponent( components[count] );
+		    		ReseatableDialogComponent toAdd = components[count];
+		    		panel.addDialogComponent( (DialogComponent) toAdd );
 		    	}
-		    	
-		    	setComponentsVisible( !useDefaultOrNot.isSelected() );
+
+		    	setComponentsVisible(enabled);
 		    }
 		    
 		    
@@ -205,12 +229,15 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 		}
 				/** This will add additional settings which are internally picked by for use by the class managing the algorithm, but not a specific component  */
     		protected void addOverallConfigurationToSettingsTab(GenericDinosKnimeDialog panel) {
-				
+
     			panel.createNewGroup( workflow.NAME_OVERALCONFIGS );
     			
 				addMaxTrialsToSettingsTab(panel);
 				
 				addCollectIterationsToSettingsTab(panel);
+				
+				if( getMode() != DINOS_NODE.PARSER )
+					addFixedVariablesToSettingsTab(panel);
 			}
 			
 					/** This will add an integer positive non zero spinner for selection how many iterations of the algorithm to do*/
@@ -224,12 +251,25 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 					DialogComponentBoolean collectIterations = new DialogComponentBoolean( workflow.createCollectItarationsModel() , workflow.NAME_COLLECTITERATIONS);
 					panel.addDialogComponent(collectIterations);
 				}
+
+					/** This will add a column filter to select which variables to fix, if any*/
+    			protected void addFixedVariablesToSettingsTab(GenericDinosKnimeDialog panel) {
+    				panel.addDialogComponent( new DialogComponentLabel(workflow.NAME_FIXED) );
+					fixedVariables = new DialogComponentColumnFilter(
+							workflow.createFixedModel(),
+				            workflow.PORT_INPUT_DATASET,
+				            false);
+					fixedVariables.setExcludeTitle(workflow.NAME_FIXED_FIXED);
+					fixedVariables.setIncludeTitle(workflow.NAME_FIXED_VARIABLE);
+					panel.addDialogComponent(fixedVariables);
+				}
 		
 				/** This will add the list of possible component specific configurations */
     		protected void addListConfigurationToSettingsTab(GenericDinosKnimeDialog panel) {
 				panel.createNewGroup( workflow.NAME_SPECIFICCONFIGS );
 				
-				DialogComponentStringsFromSpinnerGroup settings = new DialogComponentStringsFromSpinnerGroup( workflow.createSettingsModelForAvailableSettings() );
+				DialogComponentStringsFromSpinnerGroup settings =
+						new DialogComponentStringsFromSpinnerGroup( workflow.createSettingsModelForAvailableSettings() , workflow.combinedSettings );
 				panel.addDialogComponent(settings);
 			}
 		
@@ -244,27 +284,26 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
     	createSettingsTab(panel);
     }
     
+    		/** Similar to the General Tab, but with the parsing components and without random seed*/
     	protected void createParserTab(GenericDinosKnimeDialog panel) {
 	    		// Set title
 	    	panel.setDefaultTabTitle( workflow.TAB_DEFAULT );
 	    	
 	    	panel.addClassToGeneralTab(panel);
 	    	
-	    	panel.addParsingSpinners(panel);
+	    	panel.addParsingComponents(panel);
 
     	}
     	
-    	protected void addParsingSpinners(GenericDinosKnimeDialog panel) {
+    		/** Components specific to Parsing */
+    	protected void addParsingComponents(GenericDinosKnimeDialog panel) {
     			// Create Name of Group
     		panel.createNewGroup( workflow.NAME_PARSER );
     		
     		addDescriptionClass(this);
-    		
-    		addInClass(this);
-    		
-    		addThenClass(this);
     	}
     	
+    		/** Add an element to define the column to store descriptions of subgroups */
     	protected void addDescriptionClass(GenericDinosKnimeDialog panel) {
     		descCol = new DialogComponentColumnNameSelection(
     				workflow.createDescClass(),
@@ -275,55 +314,44 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
     				workflow.TARGETS_DESCTYPES);
     		panel.addDialogComponent(descCol);
     	}
-    	
-    	protected void addInClass(GenericDinosKnimeDialog panel) {
-    		inCol = new DialogComponentColumnNameSelection(
-    				workflow.createInClass(),
-    				workflow.NAME_PARSER_IN,
-    				workflow.PORT_INPUT_DESCRIPTIONS,
-    				false,
-    				true,
-    				workflow.TARGETS_INTYPES);
-    		panel.addDialogComponent(inCol);
-    	}
-    	
-    	protected void addThenClass(GenericDinosKnimeDialog panel) {
-    		thenCol = new DialogComponentColumnNameSelection(
-    				workflow.createThenClass(),
-    				workflow.NAME_PARSER_THEN,
-    				workflow.PORT_INPUT_DESCRIPTIONS,
-    				false,
-    				true,
-    				workflow.TARGETS_THENYPES);
-    		panel.addDialogComponent(thenCol);
-    	}
-
 		
 			// HELPER FUNCTIONS
 		
 			/** 
-			 * TODO: THIS DOESN'T SEEM TO WORK!
-			 *  Go through all the components of the component tab
-			 *  and either make them clickable or unclickable
+			 * TODO: Works on start for {@link DialogComponentCheckBoxGroupReferenced},
+			 *  but not for {@link DialogComponentStringSelectionReferenced}. However,
+			 *  works as normal during normal user operations.
 			 *  
 			 *  @param value if true, will enable the components, false will disable them
 			 */
     	protected void setComponentsVisible(boolean value) {
 			
 			for( int count = 0 ; count < components.length ; ++ count) {
-				components[count].getComponentPanel().setEnabled(value);
+				components[count].setEnabledOrDisabledComponents(value);
 			}
-			
 		}
     	
         @Override
         /**
-         * {@inheritDoc}
+         * For sanity checks in the dialog windows, so that they can be fixed by the
+         * user instead of having to execute the node.
+         * 
+         * In subgroup discovery, checks that the fixed column is not the same as the target
          */
         public void saveAdditionalSettingsTo(final NodeSettingsWO settings)
                 throws InvalidSettingsException {
         	
-            NODES_TYPES type = getMode();
+            DINOS_NODE type = getMode();
+            
+            if (type == DINOS_NODE.DISCOVERY) {
+            	SettingsModelFilterString filterModel = (SettingsModelFilterString) fixedVariables.getModel();
+            	var filter = filterModel.getExcludeList();
+            	SettingsModelString classNameModel = (SettingsModelString) classCol.getModel();
+            	String className = classNameModel.getStringValue();
+            		if( filter.contains( className ) ) {
+            			throw new InvalidSettingsException(workflow.EXCEPTION_FIXED_EQUALSCLASS + "(" + className + ")");
+            		}
+            }
             
         }
 }

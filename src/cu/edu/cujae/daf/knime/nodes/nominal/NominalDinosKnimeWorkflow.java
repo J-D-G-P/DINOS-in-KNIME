@@ -23,6 +23,7 @@ import org.knime.core.node.BufferedDataTable;
 import org.knime.core.node.ExecutionContext;
 import org.knime.core.node.workflow.VariableType.IntType;
 import org.knime.core.node.workflow.VariableType.StringType;
+import org.knime.core.util.workflowsummary.WorkflowSummary.Workflow;
 
 import cu.edu.cujae.daf.codification.individual.Individual;
 import cu.edu.cujae.daf.context.dataset.Attribute;
@@ -32,13 +33,14 @@ import cu.edu.cujae.daf.core.Algorithm;
 import cu.edu.cujae.daf.core.DiscoveryMode;
 import cu.edu.cujae.daf.core.DiscreteMode$;
 import cu.edu.cujae.daf.core.Subgroup;
+import cu.edu.cujae.daf.formatter.FormatSymbols;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeModel;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
 import cu.edu.cujae.daf.utils.SubgroupParser;
 
 /**
  * Contains all methods and constants for interfacing with the DAF library
- * This is the single target nominal/discrete, AKA "A string in target"
+ * This is for the single target nominal/discrete mode, AKA "A string in target"
  * 
  * @author Jonathan David González Pereda, CUJAE
  */
@@ -46,54 +48,39 @@ import cu.edu.cujae.daf.utils.SubgroupParser;
 	@SuppressWarnings("static-access")
 public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 
-		// The Singleton Instance
+		/** The Singleton Instance */
 	public static final GenericDinosKnimeWorkflow INSTANCE_NOMINAL = new NominalDinosKnimeWorkflow();
 
-		// The Helper Instance
+		/* The Helper Instance **/
 	public static final DiscoveryMode MODE_NOMINAL = DiscreteMode$.MODULE$;
 	
+	@Override
 	public Class<? extends DataValue> getThenTargetType() {return StringValue.class;}
 	
 		// Variable to store the cells type supported by this as target
 		@SuppressWarnings("unchecked")
 	public static final Class<? extends DataValue>[] TARGETS_NOMINAL = new Class[] {NominalValue.class};
 
-		/**
-		 * {@inheritDoc}
-		 */
-		//	@Override
-
-		/**
-		 * {@inheritDoc}
-		 */
+		/** {@inheritDoc} */
 	@Override
 	public DiscoveryMode getModeHelper() { return DiscreteMode$.MODULE$;}
 	
-		/**
-		 * {@inheritDoc}
-		 */
+		/** {@inheritDoc} */
 	@Override
 	public Class<? extends DataValue>[] getAceptedTargetTypes() { return this.TARGETS_NOMINAL; }
 	
-		// Constructor, nothing to initialize
+		/** Constructor, nothing to initialize */
 	private NominalDinosKnimeWorkflow() {}
 
-	
-		/**
-		 * {@inheritDoc}
-		 */
-	@Override
-	public Map< String , Map < String , String[] > > getExclusiveSettings() {
-			// There are no discrete only classes with configuration parameters
-		return new LinkedHashMap<String, Map<String, String[]>>();
-	}
-	
-
 		@Override
+		/** {@inheritDoc} */
 	public BufferedDataTable subgroupInformation(Algorithm dinos, Dataset dataset, ExecutionContext exec) {
 			// Store the column names and types
 		List<DataColumnSpec> outputSpecs = columnSpecs(dinos, dataset);
 
+			// Mode Helper
+		var mode = dataset.modeHelper();
+		
 			// Create the new table
 		BufferedDataContainer container = exec.createDataContainer( new DataTableSpec( outputSpecs.toArray(new DataColumnSpec[outputSpecs.size()]) ) );
 
@@ -105,8 +92,10 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			List<DataCell> cells = new ArrayList<>();
 			Individual currentSubgroup = subgroupsList[count].typePattern();
 			currentSubgroup.mainClass();
+			
 				// Description of Subgroup
-			cells.add(new StringCell( subgroupConditionsToString(dataset, currentSubgroup) ) );
+			cells.add(new StringCell( mode.bodyString(currentSubgroup, dataset) ) );
+			
 				// If Target is Included or Not
 			var inOrNot = BooleanCell.TRUE;
 			if (currentSubgroup.mainClass().positive() ) { inOrNot = BooleanCell.TRUE ; } else { inOrNot = BooleanCell.FALSE ; }
@@ -115,8 +104,13 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				// Value of the target Variable
 			String hola = dataset.classAtt().value( currentSubgroup.mainClass().value().left().getOrElse(null) );
 			cells.add( new StringCell( hola ) );
+			
+				// Full Subgroup Description
+			cells.add( new StringCell( mode.fullRuleString(currentSubgroup, dataset) ) );
+			
 				// True Positives
 			cells.add( new IntCell( currentSubgroup.contingencyMatrix().tp() ) );
+			
 				// Coverage
 			cells.add( new IntCell( currentSubgroup.contingencyMatrix().coverage() ) );
 			
@@ -132,23 +126,23 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		return container.getTable();
 	}
 
-			/**
-			 * {@inheritDoc}
-			 */
+			/** {@inheritDoc} */
 		@Override
 		public List<DataColumnSpec> columnSpecs(Algorithm dinos, Dataset dataset) {
 					// Store the columns of the output column
 			List<DataColumnSpec> outputSpecs = new ArrayList<>();
 					// Description of Subgroup
-			outputSpecs.add( new DataColumnSpecCreator("Subgroup", StringCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_SUBGROUP_BODY, StringCell.TYPE).createSpec() );
 					// If Target is Included or Not
-			outputSpecs.add( new DataColumnSpecCreator("In", BooleanCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_IN, BooleanCell.TYPE).createSpec() );
 					// Value of the target Variable
-			outputSpecs.add( new DataColumnSpecCreator("Class (" + dataset.classAtt().name() +  ")", StringCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_CLASS +" (" + dataset.classAtt().name() +  ")", StringCell.TYPE).createSpec() );
+					// Full Subgroup Description
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_SUBGROUP_FULL, StringCell.TYPE).createSpec() );
 					// True Positives
-			outputSpecs.add( new DataColumnSpecCreator("True Positives", IntCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_TP, IntCell.TYPE).createSpec() );
 					// Coverage
-			outputSpecs.add( new DataColumnSpecCreator("Covered", IntCell.TYPE).createSpec() );
+			outputSpecs.add( new DataColumnSpecCreator( this.RESULT_COV, IntCell.TYPE).createSpec() );
 			
 					// Now, add a column for each metric
 			addMetricsToCandidateRow(outputSpecs, dinos);
@@ -156,18 +150,14 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			return outputSpecs;
 		}
 		
-			/**
-			 * {@inheritDoc}
-			 */
+			/** {@inheritDoc} */
 		@Override
 		protected void addTargetSpecs(Dataset dataset, List<DataColumnSpec> outputSpecs) {
 			outputSpecs.add( new DataColumnSpecCreator( DEFAULT_PREDICTION + " (" + dataset.classAtt().name() + ")" , StringCell.TYPE).createSpec()
 					);
 		}
 		
-			/**
-			 * 
-			 */
+			/** {@inheritDoc} */
 		@Override
 		protected void addPrediction(List<DataCell> cells, Individual currentSubgroup, Dataset dataset) {
 			if(currentSubgroup == null)
@@ -176,11 +166,7 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				cells.add( new StringCell( dataset.classAtt().value( currentSubgroup.mainClass().value().left().getOrElse(null) ) ) );
 		}
 
-		
-			/**
-			 * {@inheritDoc}
-			 */
-		
+			/** {@inheritDoc} */
 		@Override
 		protected void addSpecificResultsVariables(
 				GenericDinosKnimeModel nodeModel,
@@ -204,15 +190,6 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				
 				return;
 			
-		}
-
-		protected String printThenCell( DataRow row , int inPosition, int thenPosition, HashSet<String> targets) {
-			
-			String inText = printInCell(inPosition, row, targets);
-			String thenText = SubgroupParser.nominal( ( (StringCell) row.getCell(thenPosition) ).getStringValue() );
-			
-			return
-					SubgroupParser.classThen() + SubgroupParser.whiteSpace() + inText + thenText;
 		}
 	
 }

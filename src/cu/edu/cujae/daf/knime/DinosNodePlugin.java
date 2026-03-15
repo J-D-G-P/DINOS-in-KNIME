@@ -8,7 +8,7 @@ import org.eclipse.core.runtime.Plugin;
 import org.osgi.framework.BundleContext;
 
 /**
- * Collection of KNIME extensions for for subgroup discovery
+ * Collection of KNIME extensions for subgroup discovery:
  * 
  * Original DINOS algorithm described in:
  *      Revista Cubana de Ciencias Informáticas  
@@ -18,15 +18,15 @@ import org.osgi.framework.BundleContext;
  *      Pág. 18-40 
  * 
  * Creators of Original DINOS algorithm:
- *      Lisandra Bravo Ilisastigui1 https://orcid.org/0000-0002-8209-4121 lbravo@ceis.cujae.edu.cu 
+ *      Lisandra Bravo Ilisastigui https://orcid.org/0000-0002-8209-4121 lbravo@ceis.cujae.edu.cu 
  *      Diana Martín Rodriguez https://orcid.org/ 0000-0001-9188-3926 dianamartin85@ceis.cujae.edu.cu 
  *      Milton García Borroto https://orcid.org/0000-0002-3154-177X mgarcia@ceis.cujae.edu.cu 
  *
  * Original Creator of the DAF library:
  *      Alejandro Tomé de Armas atomeda@ceis.cujae.edu.cu
  *      
- * Creator of this KNIME plugin and DAF library numeric and survival extensions:
- *      Jonathan David González Pereda
+ * Creator of this KNIME plugin, DAF numeric and survival extensions:
+ *      Jonathan David González Pereda jdgp030302@gmail.com
  *
  * @author Jonathan David González Pereda, CUJAE
  */

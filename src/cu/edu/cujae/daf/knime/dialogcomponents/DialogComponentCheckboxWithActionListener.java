@@ -156,7 +156,6 @@ public final class DialogComponentCheckboxWithActionListener extends DialogCompo
     @Override
     protected void setEnabledComponents(final boolean enabled) {
         m_checkbox.setEnabled(enabled);
-        new DialogComponentButton(null);
     }
 
     /**
@@ -178,6 +177,8 @@ public final class DialogComponentCheckboxWithActionListener extends DialogCompo
     	/**
     	 * HAD TO COPY AN ENTIRE CLASS FILE  INSTEAD
     	 * OF EXTENDING JUST FOR THIS LITTLE MEHTOD?!?!?!
+    	 * 
+    	 * GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH!
     	 * 
     	 * @param listener The listener to add to the checkbox
     	 */

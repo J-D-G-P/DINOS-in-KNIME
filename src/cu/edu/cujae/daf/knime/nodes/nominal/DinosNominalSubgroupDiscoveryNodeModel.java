@@ -4,30 +4,30 @@ import org.knime.core.node.port.PortType;
 
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeModel;
 import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow;
-import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.NODES_TYPES;
+import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.DINOS_NODE;
 
 /**
- * Default configuration logic for nominal subgroup discovery,
+ * Default execution logic for nominal subgroup discovery,
  * AKA a String as target
  * 
- * Methods has been made as modular as possible to make
- *  extending and replacing the class's functions easier
+ * Doesn't have any extra logic beyond what's in {@link GenericDinosKnimeModel}
  * 
  * @author Jonathan David González Pereda, CUJAE
  */
+
 public class DinosNominalSubgroupDiscoveryNodeModel extends GenericDinosKnimeModel {
 
 	@Override
 	protected GenericDinosKnimeWorkflow getInstance() { return NominalDinosKnimeWorkflow.INSTANCE_NOMINAL; }
 
 	@Override
-	protected NODES_TYPES getMode() { return NODES_TYPES.DISCOVERY;	}
+	protected DINOS_NODE getMode() { return DINOS_NODE.DISCOVERY;	}
 	
-	 protected DinosNominalSubgroupDiscoveryNodeModel() {
+	protected DinosNominalSubgroupDiscoveryNodeModel() {
 	    	super();
 	    }
 	
-		// Constructor for parser
+		// Constructor for default value
     protected DinosNominalSubgroupDiscoveryNodeModel(final PortType[] inPortTypes, final PortType[] outPortTypes) {
     	super(inPortTypes , outPortTypes);
     }
