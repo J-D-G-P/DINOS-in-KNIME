@@ -1,4 +1,4 @@
-# <img src="./DAF.jpg" alt="DAF Logo" style="height: 100px; width:100px;"/> DAF
+# <img src="./DAF.png" alt="DAF Logo" style="height: 100px; width:100px;"/> DAF
 
 DINOS (**D**escription ***Induced** **F**rom **N**on **O**verlapped **S**ubgroups) is a subgroup discovery algorithm with a modular design (called internally DAF, **D**INOS ***A**s **F**ramework*), with the default settings providing a genetic algorithm for discovering varied and non redundant subgroups. It is a project of the Computer Science Faculty of the [Techonological University Of Havan José Antonio Echeverría](https://cujae.edu.cu/)
 This is a KNIME extension using DINOS for several nodes, allowing to make DINOS much more useful by integrating it in a robust data analysis platform.
