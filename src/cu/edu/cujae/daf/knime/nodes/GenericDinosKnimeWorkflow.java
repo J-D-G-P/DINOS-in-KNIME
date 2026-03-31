@@ -1,6 +1,7 @@
 package cu.edu.cujae.daf.knime.nodes;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -20,6 +21,7 @@ import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataColumnSpecCreator;
 import org.knime.core.data.DataRow;
 import org.knime.core.data.DataTableSpec;
+import org.knime.core.data.DataType;
 import org.knime.core.data.DataValue;
 import org.knime.core.data.MissingCell;
 import org.knime.core.data.StringValue;
@@ -33,6 +35,7 @@ import org.knime.core.node.BufferedDataContainer;
 import org.knime.core.node.BufferedDataTable;
 import org.knime.core.node.CanceledExecutionException;
 import org.knime.core.node.ExecutionContext;
+import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.NodeModel;
 import org.knime.core.node.defaultnodesettings.DefaultNodeSettingsPane;
 import org.knime.core.node.defaultnodesettings.DialogComponent;
@@ -62,6 +65,7 @@ import cu.edu.cujae.daf.codification.individual.Individual;
 import cu.edu.cujae.daf.context.Configuration;
 import cu.edu.cujae.daf.context.dataset.Attribute;
 import cu.edu.cujae.daf.context.dataset.AttributeType;
+import cu.edu.cujae.daf.context.dataset.BooleanAttribute;
 import cu.edu.cujae.daf.context.dataset.Dataset;
 import cu.edu.cujae.daf.context.dataset.Dataset.ClassType;
 import cu.edu.cujae.daf.context.dataset.INTEGER;
@@ -169,6 +173,7 @@ public abstract class GenericDinosKnimeWorkflow {
 	public static final boolean DEFAULT_COLLECTITERATIONS = true;
 	public static final int DEFAULT_CHECKBOXGROUP_ELEMENTSPERROW = 2;
 	public static final int DEFAULT_CHECKBOXGROUP_METRICSMINIMUM = 1;
+	public static final int DEFAULT_OBJECTIVES_MAX = 3;	// Tenth of second
 	public static final int DEFAULT_TRIALS = Configuration.getDefaultMaxTrials();
 	public static final int DEFAULT_TRIALS_MIN = 1;
 	public static final int DEFAULT_TRIALS_MAX = Integer.MAX_VALUE;
@@ -236,15 +241,23 @@ public abstract class GenericDinosKnimeWorkflow {
 	public static final String MESSAGE_TRIAL = MESSAGE_EXECUTION + ", trial:";
 	public static final String MESSAGE_FINISHED = "Finished Discovering Subgroups, parsing results";
 	public static final String MESSAGE_PARSER = "Parsing Subgroups";
+	public static final String MESSAGE_INDEX_DATASET = "Instance at index ";
+	public static final String MESSAGE_INDEX_PARSER = "Description at index ";
 	public static final String WARNING_GUESSING_TARGET = "Guessing target column: ";
 	public static final String WARNING_GUESSING_PARSER = "Guessing parser column: ";
+	public static final String EXCEPTION_MISSING = " is missing";
+	public static final String EXCEPTION_MISSING_CLASS = " has missing class value";
 	public static final String EXCEPTION_NOCOLUMNS_DATASET = "The provided dataset table has no columns";
 	public static final String EXCEPTION_NOCOLUMNS_PARSER = "The provided parsing table has no columns";
+	public static final String EXCEPTION_NOROWS_DATASET = "The provided dataset table has no rows";
+	public static final String EXCEPTION_NOROWS_PARSRER = "The provided parsing table has no rows";
 	public static final String EXCEPTION_NOCLASS_VALIDCONFIG = "No class column set but valid configuration";
 	public static final String EXCEPTION_NOCLASS = "Table contains no suitable column to set as target";
+	public static final String EXCEPTION_NODESC = "Table contains no suitable column to set as parser descriptions";
 	public static final String EXCEPTION_CONFIGNOTFOUND_CLASS = "Previously configured class column not found or incompatible: ";
 	public static final String EXCEPTION_CONFIGNOTFOUND_PARSER = "Previously configured parsing column not found or incompatible: ";
 	public static final String EXCEPTION_PARSER_SAMECLASSTHEN = "The subgroup body and class columns cannot be the same";
+	public static final String EXCEPTION_FIXED_NOTFOUND = "Tried to set in the list of fixed variables one not present in the dataset";
 	public static final String EXCEPTION_FIXED_EQUALSCLASS = "The class column cannot be in the list of fixed variables";
 	public static final String EXCEPTION_FIXED_EQUALSCENSOR = "The censor column cannot be in the list of fixed variables";
 	public static final String EXCEPTION_PARSER = "Error when parsing subgroup, ";
@@ -252,6 +265,7 @@ public abstract class GenericDinosKnimeWorkflow {
 	public static final String EXCEPTION_COLUMNNOTFOUND_NOTFOUND = "Given column wasn't found";
 	public static final String EXCEPTION_COLUMNNOTFOUND_OBLIGATORYNULL = "Obligatory column was null";
 	public static final String EXCEPTION_IDENTICALCOLUMNS_PARSER = "Input tables with the dataset and subgroup descriptions cannot be the same";
+	public static final String EXCEPTION_OBJECTIVES_TOOMANY = "Current DINOS limitation: There can only be " + DEFAULT_OBJECTIVES_MAX + " objectives, received ";
 	
 		// Cell types identifiers
 		// TODO see if it can be obtained (similar to the boolean values) from the cels instead of hardocded
@@ -259,7 +273,12 @@ public abstract class GenericDinosKnimeWorkflow {
 	public static final String ID_BOOL = "org.knime.core.data.def.BooleanCell";
 	public static final String ID_DOUBLE = "org.knime.core.data.def.DoubleCell";
 	public static final String ID_INT = "org.knime.core.data.def.IntCell";
-
+	
+	public static void checkMaxObjectives(SettingsModelStringArray objectives) throws InvalidSettingsException {
+		var size = objectives.getStringArrayValue().length;
+		if( size > DEFAULT_OBJECTIVES_MAX )
+			throw new InvalidSettingsException( EXCEPTION_OBJECTIVES_TOOMANY + size);
+	}
 
 
 			/*
@@ -270,8 +289,26 @@ public abstract class GenericDinosKnimeWorkflow {
 	static {
 		ToolTipManager.sharedInstance().setDismissDelay(Integer.MAX_VALUE);
 	}
+	
+		/*
+		 * Other
+		 */
 
-
+	public static StringBuilder listOfClassTypesToString(Class<? extends DataValue>[] types) {
+		StringBuilder builder = new StringBuilder();
+		boolean first = true;
+		Class<? extends DataValue>[] acceptedTypes = types;
+		
+		for(int count = 0 ; count < acceptedTypes.length ; ++count) {
+			if(first == false) {
+				builder.append(" , ");
+			}
+			else
+				first = false;
+			builder.append( acceptedTypes[count].getSimpleName() );
+		}
+		return builder;
+	}
 	
 	
 	
@@ -768,13 +805,13 @@ public abstract class GenericDinosKnimeWorkflow {
 						// Subgroup descriptions
 					subgroupInformation(dinos, dataset, exec),
 						// Instances descriptions
-					subgroupWithInstances(dinos, dataset, exec),
+					subgroupWithInstances(knimeTable, dinos, dataset, exec),
 						// Variables
 					discoveryResultsToVariable(model, dinos, dataset, configuration)
 			};
 	}
 	
-		/** @return An already running object that for polling status and checking algorithm cancelations */
+		/** @return An already running object that for polling status and checking algorithm cancelation */
 	public ScheduledExecutorService createDiscoveryPoller(
 			ExecutionContext exec,
 			Algorithm dinos,
@@ -809,7 +846,7 @@ public abstract class GenericDinosKnimeWorkflow {
 		final boolean collectIterationMetrics = model.getCollectIteration();
 		final Map<String,SettingsModel> classesConfig = model.getClassesConfig();
 		final String[] settings = model.getSettingsArray();
-		final List<String> fixedVars = model.getFilterString();
+		final List<String> fixedVars = model.getFixedList();
 
 			// And then use this
 		return createAlgorithm(knimeTable, exec, targets, censor, trials, collectIterationMetrics, settings, useDefaultSettings, classesConfig, seed, fixedVars);
@@ -881,36 +918,44 @@ public abstract class GenericDinosKnimeWorkflow {
 		 */
 	private Algorithm getCustomAlgorithm( Map<String,SettingsModel> classesConfig ) {
 			//Save results here 
-		HashMap<String, String[] > result = new HashMap<String, String[]>() ;
-		
-		for(int count = 0 ; count < INFO_CONFIGURABLES.length ; ++count) {
-			
-		Tuple4<String, String, String, Object> currentInfo = INFO_CONFIGURABLES[count];
-		String currentIdentifier = currentInfo._1();
-		int currentType = (int) currentInfo._4();
-		SettingsModel currentConfig = classesConfig.get(currentIdentifier);
-		
-		switch (currentType) {
-			case 0: {	// String (only use first of provided array)
-				SettingsModelString castedConfig = (SettingsModelString) currentConfig;
-				result.put( currentIdentifier, new String[]{ castedConfig.getStringValue() } );
-				break;
-			}
-			case 1, 2: {	// Multi String
-				SettingsModelStringArray castedConfig = (SettingsModelStringArray) currentConfig;
-				result.put( currentIdentifier, castedConfig.getStringArrayValue() );
-				break;
-			}
-			default:
-				throw new IllegalArgumentException("Unexpected value for configurable: " + currentType);
-			}
-		}
+		HashMap<String, String[] > result = customAlgorithmHelper(classesConfig);
 		
 		DiscoveryMode mode = MAP_MODE_CONVERTED.get( getClassType() );
 		
 		return mode.algorithmFromMapParams(
 				scala.collection.immutable.Map.from(CollectionConverters.MapHasAsScala(result).asScala()) );
 	}
+
+
+
+		private HashMap<String, String[]> customAlgorithmHelper(Map<String, SettingsModel> classesConfig) {
+			HashMap<String, String[] > result = new HashMap<String, String[]>() ;
+			
+			for(int count = 0 ; count < INFO_CONFIGURABLES.length ; ++count) {
+				
+			Tuple4<String, String, String, Object> currentInfo = INFO_CONFIGURABLES[count];
+			String currentIdentifier = currentInfo._1();
+			int currentType = (int) currentInfo._4();
+			SettingsModel currentConfig = classesConfig.get(currentIdentifier);
+			
+			switch (currentType) {
+				case 0: {	// String (only use first of provided array)
+					SettingsModelString castedConfig = (SettingsModelString) currentConfig;
+					result.put( currentIdentifier, new String[]{ castedConfig.getStringValue() } );
+					break;
+				}
+				case 1, 2: {	// Multi String
+					SettingsModelStringArray castedConfig = (SettingsModelStringArray) currentConfig;
+					result.put( currentIdentifier, castedConfig.getStringArrayValue() );
+					break;
+				}
+				default:
+					throw new IllegalArgumentException("Unexpected value for configurable: " + currentType);
+				}
+			}
+			
+			return result;
+		}
 	
 		/**
 		 * Results of the first output port showing subgroup and results
@@ -1013,6 +1058,7 @@ public abstract class GenericDinosKnimeWorkflow {
 		 * @return A KNIME table with the information of the instances and to which subgroup it belongs
 		 */
 	public BufferedDataTable subgroupWithInstances(
+			BufferedDataTable sourceTable,
 			Algorithm dinos,
 			Dataset dataset,
 			ExecutionContext exec) {
@@ -1024,6 +1070,7 @@ public abstract class GenericDinosKnimeWorkflow {
 		
 			// Get the subgroups
 		Subgroup[] subgroupsList = dinos.externalPopulation();
+		
 		
 		boolean isSurvival = (dataset instanceof SurvClassDataset);
 		// Now, fill the table
@@ -1069,23 +1116,17 @@ public abstract class GenericDinosKnimeWorkflow {
 
 				// Add Attributes
 			for( int attributeCount = 0 ; attributeCount < currentInstance.numValues() ; ++attributeCount) {
-				Option<Object> currentValue = currentInstance.valueAt(attributeCount);
-				if( !currentValue.isDefined() )
+				Option<Object> currentOption = currentInstance.valueAt(attributeCount);
+				if( !currentOption.isDefined() )
 					cells.add( new MissingCell( null ) );
 				else {
 					Attribute currentAttribute = dataset.attributes()[ attributeCount ];
 					AttributeType currentType = currentAttribute.attributeType();
+					double currentValue = (double) currentOption.get();
 					currentAttribute.name();
 
 						// Add cell depending on type
-					if( currentType == INTEGER$.MODULE$ )
-						cells.add(new IntCell( ( (Double) currentValue.get() ).intValue() ) );
-					else if ( currentType == REAL$.MODULE$ )
-						cells.add(new DoubleCell( (double) currentValue.get() ) );
-					else if ( currentType == NOMINAL$.MODULE$ )
-						cells.add(new StringCell( currentAttribute.values()[ ( (Double) currentValue.get() ).intValue() ] ) );
-					else if ( currentType == SURVIVAL$.MODULE$ )
-						cells.add(new DoubleCell( (double) currentValue.get() ) );
+					addDataCellToList(cells, currentAttribute, currentType, currentValue);
 				}
 			}
 
@@ -1097,15 +1138,8 @@ public abstract class GenericDinosKnimeWorkflow {
 				AttributeType currentType = currentAttribute.attributeType();
 				currentAttribute.name();
 				
-					// Add cell depending on type
-				if( currentType == INTEGER$.MODULE$ )
-					cells.add(new IntCell( (int) currentValue ) );
-				else if ( currentType == REAL$.MODULE$ )
-					cells.add(new DoubleCell( (double) currentValue ) );
-				else if ( currentType == NOMINAL$.MODULE$ )
-					cells.add(new StringCell( currentAttribute.values()[ (int) currentValue ] ) );
-				else if ( currentType == SURVIVAL$.MODULE$ )
-					cells.add(new DoubleCell( (double) currentValue ) );
+						// Add cell depending on type
+					addDataCellToList(cells, currentAttribute, currentType, currentValue);
 			}
 			
 				// Do this dataset have censoring?
@@ -1123,6 +1157,41 @@ public abstract class GenericDinosKnimeWorkflow {
 			// Row Id is the number of the subgroup (S) and the instance (I) of said subgroup
 			DataRow row = new DefaultRow( "S" + (subgroupCount + 1) + " / I" + (instanceCount)  , cells);
 			container.addRowToTable(row);
+		}
+
+		protected void addDataCellToList(List<DataCell> cells, Attribute currentAttribute, AttributeType currentType,
+				double currentValue) {
+			
+			if( currentType == INTEGER$.MODULE$ )
+				cells.add(new IntCell( (int) currentValue ));
+			
+			else if ( currentType == REAL$.MODULE$ )
+				cells.add(new DoubleCell( (double) currentValue ) );
+			
+			else if ( currentType == NOMINAL$.MODULE$ ) 
+				addNominalCell(cells, currentAttribute, currentValue);
+			
+			else if ( currentType == SURVIVAL$.MODULE$ )
+				cells.add(new DoubleCell( (double) currentValue ) );
+		}
+
+		protected void addNominalCell(List<DataCell> cells, Attribute currentAttribute, double currentValue) {
+			if(currentAttribute instanceof BooleanAttribute) {
+				
+				var toCheck = currentAttribute.values()[ ( (Double) currentValue ).intValue() ];
+				addBooleanCell(cells, toCheck);
+			}
+			else
+				cells.add(new StringCell( currentAttribute.values()[ (int) currentValue ] ) );
+		}
+
+		protected void addBooleanCell(List<DataCell> cells, String toCheck) {
+			BooleanCell toAdd = null;
+			if( toCheck.equals(BOOL_FALSE_TEXT) )
+				toAdd = BooleanCell.FALSE;
+			else
+				toAdd = BooleanCell.TRUE;
+			cells.add(toAdd);
 		}
 	
 		protected void addPrediction(List<DataCell> cells, Individual currentSubgroup, Dataset dataset) {
@@ -1155,8 +1224,9 @@ public abstract class GenericDinosKnimeWorkflow {
 				outputSpecs.add(  new DataColumnSpecCreator(currentName, IntCell.TYPE).createSpec() );
 			else if ( currentType == REAL$.MODULE$ )
 				outputSpecs.add(  new DataColumnSpecCreator(currentName, DoubleCell.TYPE).createSpec() );
-			else if ( currentType == NOMINAL$.MODULE$ )
-				outputSpecs.add(  new DataColumnSpecCreator(currentName, StringCell.TYPE).createSpec() );
+			else if ( currentType == NOMINAL$.MODULE$ ) {
+				addNominalSpec(outputSpecs, currentAttribute, currentName);
+			}
 			else if ( currentType == SURVIVAL$.MODULE$ )
 				outputSpecs.add(  new DataColumnSpecCreator(currentName, DoubleCell.TYPE).createSpec() );
 		}
@@ -1166,6 +1236,13 @@ public abstract class GenericDinosKnimeWorkflow {
 		
 		return outputSpecs;
 	}
+
+		protected void addNominalSpec(List<DataColumnSpec> outputSpecs, Attribute currentAttribute, String currentName) {
+			if(currentAttribute instanceof BooleanAttribute)
+				outputSpecs.add(  new DataColumnSpecCreator(currentName, BooleanCell.TYPE).createSpec() );
+			else
+				outputSpecs.add(  new DataColumnSpecCreator(currentName, StringCell.TYPE).createSpec() );
+		}
 	
 		protected abstract void addTargetSpecs(Dataset dataset, List<DataColumnSpec> outputSpecs);
 
@@ -1227,14 +1304,28 @@ public abstract class GenericDinosKnimeWorkflow {
 			GenericDinosKnimeModel nodeModel,
 			Algorithm dinos,
 			Dataset dataset) {
-		nodeModel.addResultVariables("targets_total", IntType.INSTANCE, dataset.instances()[0].numClass() );			
-		nodeModel.addResultVariables("attributes_total", IntType.INSTANCE, dataset.instances()[0].numValues() );
-		nodeModel.addResultVariables("variables_total", IntType.INSTANCE, dataset.attributes().length );
-		nodeModel.addResultVariables("subgroups_total", IntType.INSTANCE, dinos.externalPopulation().length );
-		nodeModel.addResultVariables("executionTimeMillis", LongType.INSTANCE, dinos.executionTimeMillis() );
+		
+		String[] allAttributes = dataset.namesAttributes();
+		int dimensionality = dataset.dimensionality();
+		
+		String[] namesVariables = Arrays.copyOfRange(allAttributes, 0, dimensionality);
+		String[] namesTargets = Arrays.copyOfRange(allAttributes, dimensionality, allAttributes.length);
+		
+		nodeModel.addResultVariables("targets_names", StringArrayType.INSTANCE, namesTargets );
+		nodeModel.addResultVariables("targets_total", IntType.INSTANCE, dataset.instances()[0].numClass() );	
+		nodeModel.addResultVariables("variables_names", StringArrayType.INSTANCE, namesVariables );
+		nodeModel.addResultVariables("variables_total", IntType.INSTANCE, dataset.instances()[0].numValues() );
+		nodeModel.addResultVariables("attributes_names", StringArrayType.INSTANCE, allAttributes );
+		nodeModel.addResultVariables("attributes_total", IntType.INSTANCE, dataset.attributes().length );
+		
+		if(dinos != null) {
+			nodeModel.addResultVariables("subgroups_total", IntType.INSTANCE, dinos.externalPopulation().length );
+			nodeModel.addResultVariables("executionTimeMillis", LongType.INSTANCE, dinos.executionTimeMillis() );
+		}
+		
 		nodeModel.addResultVariables("instances_num", IntType.INSTANCE, dataset.numInstances() );
 		nodeModel.addResultVariables("dataset_type", StringType.INSTANCE, dataset.classType().getClass().getSimpleName() );
-		
+
 	}
 	
 		/**
@@ -1264,25 +1355,33 @@ public abstract class GenericDinosKnimeWorkflow {
 			GenericDinosKnimeModel nodeModel,
 			Algorithm dinos
 			) {
-			Map<String, SettingsModel> classesConfig = nodeModel.classesConfig;
+			Map<String, String[]> classesConfig = null; //JavaConverters.mapAsJavaMapConverter(dinos.paramsUsed()).asJava();
 			
-			for( int count = 0; count < INFO_CONFIGURABLES.length ; ++count) {
+			if( nodeModel.getUseDefaultOrNot() == true )
+				classesConfig = JavaConverters.mapAsJavaMapConverter( getModeHelper().combinedDefaultParameters() ).asJava();
+			else
+				classesConfig = customAlgorithmHelper( nodeModel.classesConfig );
+			
+					
+			for( int count = INFO_CONFIGURABLES.length -1; count >-1 ; --count) {
 				Tuple4<String, String, String, Object> currentInfo = INFO_CONFIGURABLES[count];
 				String currentIdentifier = currentInfo._1();
 				int currentType = (int) currentInfo._4();
 				
 				switch (currentType) {
 				case 0: {
-					nodeModel.addResultVariables( currentIdentifier , StringType.INSTANCE , ( (SettingsModelString) classesConfig.get(currentIdentifier) ).getStringValue() );
+					nodeModel.addResultVariables( currentIdentifier , StringType.INSTANCE , ( classesConfig.get(currentIdentifier)[0] ) );
 					break;
 				}
 				case 1,2: {
-					nodeModel.addResultVariables( currentIdentifier , StringArrayType.INSTANCE , ( (SettingsModelStringArray) classesConfig.get(currentIdentifier) ).getStringArrayValue() );
+					nodeModel.addResultVariables( currentIdentifier , StringArrayType.INSTANCE , ( classesConfig.get(currentIdentifier) ) );
 					break;
 				}
 				default:
 					throw new IllegalArgumentException("Unexpected value: " + currentType);
 				}
+				
+			// Edge cases: Metrics can ov
 		}
 	}
 	
@@ -1345,7 +1444,7 @@ public abstract class GenericDinosKnimeWorkflow {
 				// Instances descriptions
 			instancesExtracted(dataset, exec),
 				// Variables
-			extractResultsToVariable(),
+			extractResultsToVariable(nodeModel, null, dataset, null),
 		};
 	}
 
@@ -1393,7 +1492,15 @@ public abstract class GenericDinosKnimeWorkflow {
 		return container.getTable();
 	}
 	
-	private PortObject extractResultsToVariable() {
+	private PortObject extractResultsToVariable(
+			GenericDinosKnimeModel nodeModel,
+			Algorithm dinos,
+			Dataset dataset,
+			Configuration configuration) {
+		
+		addSpecificResultsVariables( nodeModel , dinos , dataset );
+		
+		addOverallResultsVariables( nodeModel , dinos , dataset) ;
 		
 		return FlowVariablePortObject.INSTANCE;
 	}
@@ -1418,21 +1525,22 @@ public abstract class GenericDinosKnimeWorkflow {
 			final GenericDinosKnimeModel model
 			) throws Exception {
 	
-			// Create Dataset
-		Tuple3<Dataset, Configuration, Algorithm> results = createParseAlgorithm(dataTable, descriptionsTable, exec, model);
-
-			// Get these from the created algorithm...
-		Dataset dataset = results._1();
-		Algorithm dinos = results._3();
-		exec.setMessage(MESSAGE_PARSER);
-		
-			// ...and these from the input model
+			// Get these from the input model
 		final HashSet<String> targets = model.targetToHashSet();
 		final String descriptionColumn = model.getDescClass();
 		final String[] censor = model.getCensorInfo();
 		
+		
+			// Create Dataset
+		Tuple3<Dataset, Configuration, Algorithm> results = createParseAlgorithm(dataTable, descriptionsTable, exec, model);
+		
 			// The actual string descriptions
 		String[] descriptions = getSubgroupDescriptions(descriptionsTable, descriptionColumn, targets);
+
+			// Get these from the created algorithm
+		Dataset dataset = results._1();
+		Algorithm dinos = results._3();
+		exec.setMessage(MESSAGE_PARSER);
 		
 		model.logDebug( "Parsing Subgroup: \n" + descriptions.toString() + "\n" );
 		
@@ -1443,7 +1551,7 @@ public abstract class GenericDinosKnimeWorkflow {
 				// Subgroup descriptions
 			subgroupInformation(dinos, dataset, exec),
 				// Instances descriptions
-			subgroupWithInstances(dinos, dataset, exec),
+			subgroupWithInstances(dataTable, dinos, dataset, exec),
 				// Variables
 			discoveryResultsToVariable(model, dinos, dataset, null)
 		};
@@ -1467,27 +1575,35 @@ public abstract class GenericDinosKnimeWorkflow {
 			final Map<String,SettingsModel> classesConfig = model.getClassesConfig();
 			final String[] settings = model.getSettingsArray();
 			
-			return createAlgorithm(dataTable, exec, targets, censor, 0, Configuration.getDefaultCollectIterations(), settings, useDefaultSettings, classesConfig, 0, null);
+			return createAlgorithm(dataTable, exec, targets, censor, Configuration.getDefaultMaxTrials(), Configuration.getDefaultCollectIterations(), settings, useDefaultSettings, classesConfig, 0, null);
 		}
 	
 	private String[] getSubgroupDescriptions(
 			final BufferedDataTable descriptionsTable,
 			final String descriptionColumn,
 			final HashSet<String> targets) {
-		
+
 			// We will need these
+		long descriptionSize = descriptionsTable.size();
 		DataTableSpec descriptionSpec = descriptionsTable.getDataTableSpec();
-		String[] answer = new String[ (int) descriptionsTable.size() ];
+		String[] answer = new String[ (int) descriptionSize ];
 		CloseableRowIterator iterator = descriptionsTable.iterator();
-				
+
+		if(descriptionSize == 0)
+			throw new IllegalArgumentException(EXCEPTION_NOROWS_PARSRER);
+
 			// First, check if these columns exist
 		int descriptionPosition = tryToGetPositionInTable( descriptionSpec , descriptionColumn, false , " (for body description)");
 
 			// TODO check for size
 		for(int count = 0 ; count < answer.length ; ++ count) {
 			DataRow nextRow = iterator.next();
+			DataCell descriptionCell = nextRow.getCell(descriptionPosition);
+			if(descriptionCell.isMissing())
+				throw new IllegalArgumentException(MESSAGE_INDEX_PARSER + nextRow.getKey().getString() + EXCEPTION_MISSING);
+				
 			String subgroupDescriptions
-				= nextRow.getCell(descriptionPosition).toString();
+				= descriptionCell.toString();
 			answer[count] = subgroupDescriptions;
 		}
 		
@@ -1537,6 +1653,5 @@ public abstract class GenericDinosKnimeWorkflow {
 
 		return answer;
 	}
-
 
 }

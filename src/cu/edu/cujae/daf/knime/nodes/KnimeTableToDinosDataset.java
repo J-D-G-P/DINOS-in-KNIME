@@ -23,10 +23,13 @@ import org.knime.core.data.def.IntCell;
 import org.knime.core.data.def.StringCell;
 import org.knime.core.node.BufferedDataTable;
 import org.knime.core.node.ExecutionContext;
+import org.knime.core.node.InvalidSettingsException;
 
 import cu.edu.cujae.daf.context.Configuration;
 import cu.edu.cujae.daf.context.FixedVariableInfo;
 import cu.edu.cujae.daf.context.dataset.Attribute;
+import cu.edu.cujae.daf.context.dataset.BooleanAttribute;
+import cu.edu.cujae.daf.context.dataset.CENSORED;
 import cu.edu.cujae.daf.context.dataset.CENSORED$;
 import cu.edu.cujae.daf.context.dataset.Dataset;
 import cu.edu.cujae.daf.context.dataset.INTEGER$;
@@ -34,6 +37,7 @@ import cu.edu.cujae.daf.context.dataset.Instance;
 import cu.edu.cujae.daf.context.dataset.NOMINAL$;
 import cu.edu.cujae.daf.context.dataset.REAL$;
 import cu.edu.cujae.daf.context.dataset.SURVIVAL$;
+import cu.edu.cujae.daf.knime.nodes.survival.SurvivalDinosKnimeWorkflow;
 import scala.None$;
 import scala.Option;
 import scala.jdk.CollectionConverters;
@@ -52,7 +56,14 @@ import scala.jdk.CollectionConverters;
 
 public class KnimeTableToDinosDataset {
 
-
+	public static final String MESSAGE_RECREATEDOMAIN = " (If you still want to use these column re-create the table with the \"Domain Calculator\" node with unrestricted number of possible values). ";
+	public static final String MESSAGE_MAYBEALLMISSING = ", are these columns completely empty or filled with missing values? ";
+	public static final String EXCEPTION_SPECS = "Problems in the incoming table: ";
+	public static final String EXCEPTION_SPECS_NOVALUESLIST = "* No value list found in domain for the columns: ";
+	public static final String EXCEPTION_SPECS_ZEROVALUES = "* The following String columns have zero values: ";
+	public static final String EXCEPTION_SPECS_NOBOUNDS = "* The following numeric columns have no lower or upper bounds: ";
+	public static final String EXCEPTION_SPECS_UNSOPORTED = "* Unsoported Data Type: ";
+	
 	/**
 	 * Takes a KNIME table to the internal and makes an
 	 * internal DINOS dataset from it
@@ -84,9 +95,6 @@ public class KnimeTableToDinosDataset {
 			final HashSet targets,
 			final String[] censoring) throws Exception {
 
-		if(table.size() == 0)
-			throw new Exception("No rows in the given table");
-
 	    // The algorithm is divided in three parts:
 	    // * PART 1: PROCESS COLUMNS FOR ATTRIBUTES *
 	    // * PART 2: CREATE INSTANCES *
@@ -97,6 +105,8 @@ public class KnimeTableToDinosDataset {
 		int columnAmount = columnNames.length;
 		DataColumnSpec columnSpecs = tableSpecs.getColumnSpec(0);
 		CandidateAttribute[] attributes = new CandidateAttribute[columnAmount];
+		
+		makeAllTableChecks(table);
 		
 	    // * PART 1: PROCESS COLUMNS FOR ATTRIBUTES  *
 		exec.setProgress( 0, GenericDinosKnimeWorkflow.MESSAGE_PROCESSCOLUMNS );
@@ -130,6 +140,7 @@ public class KnimeTableToDinosDataset {
 				{	attributes[count] = new CandidateAttribute(columnNames[count] , NOMINAL$.MODULE$ , false, false, -1, 0 , 0, BOOL_VALUES , "") ;	survivalRelated = true;}	
 				// Real value? ("Double")
 				else if(identifier.equals(GenericDinosKnimeWorkflow.ID_DOUBLE) )
+					// TODO if numeric column is ALL missing instead of being catch in the missing check, the bounds are null and crashes here
 				{	attributes[count] = new CandidateAttribute(columnNames[count] , REAL$.MODULE$ , false, false, -1, ( (DoubleValue) currentColumnDomain.getLowerBound() ).getDoubleValue() , ( (DoubleValue) currentColumnDomain.getUpperBound() ).getDoubleValue(), null, "") ;	survivalRelated = true;}
 					// Integer value? ("Int")
 				else if ( identifier.equals(GenericDinosKnimeWorkflow.ID_INT) )
@@ -191,8 +202,12 @@ public class KnimeTableToDinosDataset {
 				 double cellValue = 0d;
 				 
 				 if(attributeInfo.skip == false) {
-					 if ( cell.isMissing() ) // Is the value missing?
-			            { insertValue = scala.None$.MODULE$; }
+					// Is the value missing?
+					 if ( cell.isMissing() ) { 
+						 insertValue = scala.None$.MODULE$; 
+						 if(attributeInfo.vtype == CENSORED$.MODULE$)
+							 throw new RuntimeException(GenericDinosKnimeWorkflow.MESSAGE_INDEX_DATASET + currentRow.getKey().getString() + SurvivalDinosKnimeWorkflow.EXCEPTION_MISSING_CENSOR + parenthesisString(attributeInfo.name));
+						 }
 			          else {
 			        	  if(attributeInfo.vtype == NOMINAL$.MODULE$) {
 			        		  LinkedHashMap<String, Integer> possibleValues = attributeInfo.values;
@@ -216,7 +231,7 @@ public class KnimeTableToDinosDataset {
 			        	  else if(attributeInfo.vtype == SURVIVAL$.MODULE$) {
 			        		  cellValue = ( (DoubleValue) cell ).getDoubleValue();
 			        		  if (cellValue <= 0)
-			                      throw new RuntimeException("Instance at index " + countInstances + " have a negative survival value of " + cellValue);
+			                      throw new RuntimeException(GenericDinosKnimeWorkflow.MESSAGE_INDEX_DATASET + currentRow.getKey().getString() + SurvivalDinosKnimeWorkflow.EXCEPTION_NEGATIVESURVIVAL + cellValue + parenthesisString(attributeInfo.name));
 			        	  }
 			        	  else if(attributeInfo.vtype == CENSORED$.MODULE$) {
 			        		  isInstanceCensored = attributeInfo.censor.equals( cell.toString() );
@@ -234,7 +249,7 @@ public class KnimeTableToDinosDataset {
 							 if (insertValue != None$.MODULE$)
 								 targetsToAdd[attributeInfo.position] = (double) insertValue.get();
 							 else
-					             throw new RuntimeException("Instance at index " + countInstances + " has no class value");
+					             throw new RuntimeException(GenericDinosKnimeWorkflow.MESSAGE_INDEX_DATASET + currentRow.getKey().getString() + GenericDinosKnimeWorkflow.EXCEPTION_MISSING_CLASS + parenthesisString(attributeInfo.name));
 						 }
 					 }
 				 }
@@ -267,7 +282,7 @@ public class KnimeTableToDinosDataset {
 				 Attribute newAttribute = null;
 				 if(attributeInfo.vtype == REAL$.MODULE$ || attributeInfo.vtype == INTEGER$.MODULE$ || attributeInfo.vtype == SURVIVAL$.MODULE$) {
 					 newAttribute = new Attribute(
-					          // Numeric (Integer or Real) attribute, it has an interval of possible values
+					          	// Numeric (Integer or Real) attribute, it has an interval of possible values
 					          attributeInfo.name,
 					          attributeInfo.vtype,
 					          new String[0],
@@ -277,8 +292,12 @@ public class KnimeTableToDinosDataset {
 					        );
 				 }
 				 else if (attributeInfo.vtype == NOMINAL$.MODULE$) {
+					 if( attributeInfo.values == BOOL_VALUES ) {
+						 newAttribute = new BooleanAttribute(attributeInfo.name, insertPosition);
+					 }
+					 else
 					 newAttribute = new Attribute(
-					          // Numeric (Integer or Real) attribute, it has an interval of possible values
+					          	// Numeric (Integer or Real) attribute, it has an interval of possible values
 					          attributeInfo.name,
 					          attributeInfo.vtype,
 					          genericSetToArrayOfArray( attributeInfo.values.keySet() ),
@@ -300,6 +319,7 @@ public class KnimeTableToDinosDataset {
 		return Dataset.apply(finalAttributes, toInstanceArray(instances) );
 
 		}
+
 
 
 			/**
@@ -342,7 +362,7 @@ public class KnimeTableToDinosDataset {
 					!indicator.equals( GenericDinosKnimeWorkflow.BOOL_FALSE_TEXT ) &&
 					!indicator.equals( GenericDinosKnimeWorkflow.BOOL_TRUE_TEXT )
 				)
-					throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") for the chosen column \"" + name + "\" of type Boolean is neither \"" + GenericDinosKnimeWorkflow.BOOL_FALSE_NUM + "\" or \" " + GenericDinosKnimeWorkflow.BOOL_FALSE_NUM + "\"" );
+					throw new IllegalArgumentException( "Value defined as censor indicator (" + indicator + ") for the chosen column \"" + name + "\" of type Boolean is neither \"" + GenericDinosKnimeWorkflow.BOOL_FALSE_TEXT + "\" or \" " + GenericDinosKnimeWorkflow.BOOL_TRUE_TEXT + "\"" );
 			}
 	
 	}
@@ -449,5 +469,99 @@ public class KnimeTableToDinosDataset {
 		}
 
 
+		/*
+		 * SPECS CHECKERS
+		 */
+		
+		private static void makeAllTableChecks(final BufferedDataTable table)
+				throws InvalidSettingsException {
+			var tableSpecs = table.getDataTableSpec();
+			
+			checkNoColumns(tableSpecs, "");
+			checkNoRows(table, "");
+			checkValidSpecs(tableSpecs);
+
+		}
+		
+	    public static void checkValidSpecs(DataTableSpec inSpec) throws InvalidSettingsException {
+    		// We will need these
+    	int columnAmount = inSpec.getNumColumns();
+    	HashSet<String> nonExistingSpecs = new HashSet<String>();
+    	HashSet<String> zeroValues = new HashSet<String>();
+    	HashSet<String> noBounds = new HashSet<String>();
+    	HashSet<String> unssoported = new HashSet<String>();
+    	
+    	for(int count = 0 ; count < columnAmount ; ++count) {
+    		
+    			// Get info for the current column
+    		DataColumnSpec currentSpec = inSpec.getColumnSpec(count);
+    		String currentName = currentSpec.getName();
+    		DataColumnDomain currentDomain = currentSpec.getDomain();
+    		DataType currentType = currentSpec.getType();
+    		String identifier = currentType.getIdentifier();
+   
+    			// Now, check if it is a String column, and then the values list
+    		if( identifier.equals(GenericDinosKnimeWorkflow.ID_STRING) ) {
+    		  
+    			// If it doesn't exists, add to this list so as to show all problematic columns to the user
+    			if ( !currentDomain.hasValues() )
+    				nonExistingSpecs.add( currentSpec.getName() );
+    			else if ( currentDomain.getValues().size() == 0 )
+    				zeroValues.add( currentName );
+    		}
+    			// Numeric columns should have upper and lower bounds defined
+    		else if (identifier.equals(GenericDinosKnimeWorkflow.ID_INT)
+    				|| identifier.equals(GenericDinosKnimeWorkflow.ID_DOUBLE) ) {
+    			
+    			if( !currentDomain.hasLowerBound() || !currentDomain.hasUpperBound() ) {
+    				noBounds.add( currentName );
+    			}
+    		}
+    			// Check for booleans
+    		else if (identifier.equals(GenericDinosKnimeWorkflow.ID_BOOL) ) {
+    			
+    		}
+    			// Otherwise, unssoported
+    		else
+    		{	unssoported.add(currentName + "(" + identifier + ")" );	}
+    	}
+    	
+    	var builder = new StringBuilder();
+    		// And finally complain if a problematic column was found
+    	if( !nonExistingSpecs.isEmpty() )
+    		{ builder.append( EXCEPTION_SPECS_NOVALUESLIST + nonExistingSpecs.toString() + MESSAGE_RECREATEDOMAIN ); }
+    	if ( !zeroValues.isEmpty() ) 
+    		{ builder.append( EXCEPTION_SPECS_ZEROVALUES + zeroValues.toString() + MESSAGE_MAYBEALLMISSING ); }
+    	if ( !noBounds.isEmpty() )
+    		{ builder.append( EXCEPTION_SPECS_NOBOUNDS + noBounds.toString() + MESSAGE_MAYBEALLMISSING ); }
+    	if( !unssoported.isEmpty() ) 
+    		{ builder.append(EXCEPTION_SPECS_UNSOPORTED + unssoported.toString()); }
+    	
+    	if( ! builder.isEmpty() )
+    		{ throw new IllegalArgumentException( EXCEPTION_SPECS + builder.toString()); }
 	}
+	    
+		public static void checkNoRows(BufferedDataTable table, String message)
+				throws InvalidSettingsException {
+			if(table.size() == 0)
+				throw new IllegalArgumentException(
+						(message == null || message == "") ?
+								GenericDinosKnimeWorkflow.EXCEPTION_NOROWS_DATASET :
+								message);
+		}
+		
+		public static void checkNoColumns(DataTableSpec input, String message)
+	        	throws InvalidSettingsException {
+	        	if (input.getNumColumns() == 0)
+	        		throw new IllegalArgumentException(
+							(message == null || message == "") ?
+									GenericDinosKnimeWorkflow.EXCEPTION_NOCOLUMNS_DATASET :
+									message);
+	        }
+		
+		private static String parenthesisString(String name) {
+			return " (" + name + ")";
+	}
+		
+}
 	

@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.knime.core.data.BooleanValue;
 import org.knime.core.data.DataCell;
 import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataColumnSpecCreator;
@@ -16,6 +17,7 @@ import org.knime.core.data.DoubleValue;
 import org.knime.core.data.IntValue;
 import org.knime.core.data.MissingCell;
 import org.knime.core.data.NominalValue;
+import org.knime.core.data.StringValue;
 import org.knime.core.data.def.BooleanCell;
 import org.knime.core.data.def.DefaultRow;
 import org.knime.core.data.def.DoubleCell;
@@ -64,6 +66,9 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 	public static final String EXCEPTION_CONFIGNOTFOUND_CENSOR = "Previously configured censor column not found or incompatible: ";
 	public static final String EXCEPTION_SAMECOLUMN = "Survival time and censoring column indicator cannot be the same";
 	public static final String EXCEPTION_EMPTYINDICATOR = "The censor indicator cannot be empty";
+	public static final String EXCEPTION_NOCENSOR = "Table contains no suitable column to set for censoring";
+	public static final String EXCEPTION_NEGATIVESURVIVAL = " have a non positive survival value of ";
+	public static final String EXCEPTION_MISSING_CENSOR = " has missing censor value";
 	
 		// Name of columns to show in result tables
 	public static final String RESULT_CENSORED = "Censored (" + GenericDinosKnimeWorkflow.BOOL_FALSE_TEXT + ") / Alive (" + GenericDinosKnimeWorkflow.BOOL_TRUE_TEXT + ")";
@@ -81,7 +86,7 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 	
 		// Target types for filtering incoming tables
 	public static final Class<? extends DataValue>[] TARGETS_SURVIVAL = new Class[] {IntValue.class , DoubleValue.class};
-	public static final Class<? extends DataValue>[] TARGETS_CENSOR = new Class[] {IntValue.class , NominalValue.class};
+	public static final Class<? extends DataValue>[] TARGETS_CENSOR = new Class[] {IntValue.class , StringValue.class , BooleanValue.class};
 
 	public static Class<? extends DataValue>[] getCensorTargetTypes( ) { return TARGETS_CENSOR; }
 	
@@ -139,21 +144,7 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				// Description of Subgroup
 			cells.add(new StringCell( dataset.modeHelper().bodyString(currentSubgroup, dataset) ) );
 			
-			int currentCalcsPos = 1;
-			
-			while (currentCalcsPos > 0 ) {
-				String currentName = columnNames[currentCalcsPos];
-				Double valueToAdd = currentCalcs.getOrElse(currentName, null);
-				if(valueToAdd != null) {
-					cells.add( new DoubleCell(valueToAdd) );
-					currentCalcsPos = -1;
-				}
-				else {
-					cells.add( new DoubleCell(valueToAdd) );
-					++currentCalcsPos;
-				}
-				
-			}
+			addSurvivalCells(columnNames, cells, currentCalcs);
 			
 					// Amount of Instances
 			cells.add( new IntCell( currentMatrix.coverage() ) );
@@ -182,6 +173,32 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 		return container.getTable();
 	}
 
+			/**
+			 * Helper function for adding the survival information, which is specific for each run
+			 * 
+			 * @param columnNames Name of columns, the survival info ones start at the second position and are enclosed in []
+			 * @param cells Where to add the survival info
+			 * @param currentCalcs From where to get the survival info
+			 */
+		private void addSurvivalCells(String[] columnNames, List<DataCell> cells,
+				scala.collection.mutable.LinkedHashMap<String, Object> currentCalcs) {
+			int currentCalcsPos = 1;
+			
+			while (currentCalcsPos > 0 ) {
+				String currentName = columnNames[currentCalcsPos].replace("[", "").replace("]", "");
+				if( currentCalcs.contains(currentName) ) {
+					
+					Double valueToAdd = (Double) currentCalcs.get(currentName).get();
+					cells.add( new DoubleCell(valueToAdd) );
+					
+					++currentCalcsPos;
+				}
+				else
+					currentCalcsPos = -1;
+			}
+				
+		}
+
 			private DataCell parseMedian(Option<Object> median) {
 				return median.isDefined()
 						? new DoubleCell( (double) median.get() )
@@ -199,7 +216,7 @@ public class SurvivalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 				// Result from metrics (as a sort of target value)
 		var hello = ( (SurvivalMatrix) dinos.externalPopulation()[0].typePattern().contingencyMatrix() ).calcs().keysIterator();
 		while ( hello.hasNext() )
-		{	outputSpecs.add( new DataColumnSpecCreator( hello.next() , DoubleCell.TYPE).createSpec() );	}
+		{	outputSpecs.add( new DataColumnSpecCreator( "[" + hello.next() + "]" , DoubleCell.TYPE).createSpec() );	}
 				// Amount of Instances
 		outputSpecs.add( new DataColumnSpecCreator( this.RESULT_COV, IntCell.TYPE).createSpec() );
 				// Amount of Censored Instances

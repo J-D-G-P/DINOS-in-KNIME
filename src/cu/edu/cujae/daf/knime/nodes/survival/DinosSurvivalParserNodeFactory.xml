@@ -21,9 +21,9 @@ From textual description of subgroups, find the instances in the data that belon
 
 <tab name="Components">
 	<option name="Use Default Components">If true, ignore all custom components configuration and use the default one </option>
-	<option name="NOTE: ">Hover the mouse pointer over components to read a description of them </option>
-	<option name="Metric (metrics)">Method or formulas to get the quality of a subgroup, with quality defined as a numerical value to be maximized that the larger it is shows the subgroup is more different from the rest of the data </option>
-	<option name="Objectives (objs)">This uses the same methods for the metrics, but are instead used in the solution generator (see below) </option>
+	<option name="NOTE: ">Hover the mouse pointer over components to read a description of them. Also, for most use cases it makes sense to change "objectives" and "class Selector" </option>
+	<option name="Metric (metrics)">Method or formulas for the quality of a subgroup. Set these for when you want to know the value of a metric without it influencing in the subgroup results (for that, use "objectives"). </option>
+	<option name="Objectives (objs)">Metrics to use to influence in the quality of subgroups. If you only want to know a value of a metric, instead set in "metrics". </option>
 	<option name="Class Selector (classSel)">Criteria to select the value of the target variable in each subgroup </option>
 	<option name="Feasibility Evaluator (feas)">Determine if a candidate subgroup is feasible </option>
 	<option name="Feasibility Operator (feasOp)">Feasibility criteria of an individual, which modifies previously defined candidate subgroups as unfeasible until it is marked as feasible </option>

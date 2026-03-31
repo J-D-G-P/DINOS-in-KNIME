@@ -116,7 +116,7 @@ public class DinosSurvivalSubgroupDiscoveryNodeDialog extends GenericDinosKnimeD
         		}
         }
 
-        	// If everyting is right, call this
+        	// If everything is right, call this
         super.saveAdditionalSettingsTo(settings);
     }
 	

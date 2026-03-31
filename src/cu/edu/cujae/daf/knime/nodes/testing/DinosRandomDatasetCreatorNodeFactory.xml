@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<knimeNode icon="./default.png" type="Source" xmlns="http://knime.org/node/v2.8" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://knime.org/node/v2.10 http://knime.org/node/v2.10.xsd">
+    <name>DINOS Random Dataset Creator</name>
+    
+    <shortDescription>
+		Creates random bogus datasets for use in DINOS testing
+    </shortDescription>
+    
+    <fullDescription>
+    
+        <intro>
+        	<br/>
+        	 Creates a random bogus set for use in DINOS with:
+			 <br/>
+			 1 - A column of every supported type of data. The columns are shuffled each time and have random data.
+			 <br/>
+			 2 - A column of the target data type chosen in the dialogue
+			 <br/>
+			 3 - Flow variables for automatically setting
+			<br/>
+		</intro>
+        
+        
+        <option name="short name of first option (like in the dialog)">description of first option</option>
+        <option name="short name of second option (like in the dialog)">description of second option</option>
+        <!-- possibly more options that can also be grouped by tabs -->
+        <!--
+        <tab name="Standard Options">
+            <option name="short name of first option (like in the dialog)">description of first option</option>
+            <option name="short name of second option (like in the dialog)">description of second option</option>
+        </tab>
+        <tab name="Advanced Options">
+            <option name="short name of first advanced option (like in the dialog)">description of first advanced option</option>
+        </tab>
+        -->
+    </fullDescription>
+    
+    <ports>
+        <outPort index="0" name="In-Port name">Flow variables</outPort>
+        <!-- possibly more input ports here-->
+        <outPort index="1" name="Out-Port name">Bogus Dataset</outPort>
+        <!-- possibly more output ports here-->
+    </ports>    
+
+</knimeNode>

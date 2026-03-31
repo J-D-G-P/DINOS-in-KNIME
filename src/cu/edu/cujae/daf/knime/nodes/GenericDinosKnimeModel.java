@@ -46,7 +46,7 @@ import cu.edu.cujae.daf.knime.nodes.GenericDinosKnimeWorkflow.DINOS_NODE;
  */
 
 	@SuppressWarnings("static-access")
-public abstract class GenericDinosKnimeModel extends NodeModel {
+public abstract class GenericDinosKnimeModel extends NodeModel implements AddExternalFlowVariables {
 
 		/** Get the specific workflow helper */
 	protected abstract GenericDinosKnimeWorkflow getInstance();
@@ -75,9 +75,7 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
 		
 		/** Fixed variables info */
 	protected final SettingsModelFilterString fixed = workflow.createFixedModel();
-	protected List<String> getFilterString() {return fixed.getExcludeList(); }
-	protected String getFixed() { return null; }
-	protected String[] getFixedInfo() {return null;}
+	protected List<String> getFixedList() {return fixed.getExcludeList(); }
 	
 		/** In case the nodes need it (right now, only survival mode) */
 	protected String[] getCensorInfo() {return null;}
@@ -215,22 +213,35 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     	DINOS_NODE mode = getMode();
     	
     	if(mode == DINOS_NODE.DISCOVERY) {
+    		checkDatasetSpecs(inSpecs);
+    		checkFixedNotInTargets(inSpecs);
+    		checkMaxObjectives();
     		targetConfigure(inSpecs);
     	}
     	else if (mode == DINOS_NODE.EXTRACTOR) {
+    		checkDatasetSpecs(inSpecs);
     		targetConfigure(inSpecs);
     	}
     	else if (mode == DINOS_NODE.PARSER) {
+    		checkDatasetSpecs(inSpecs);
         	tablesNotSame(inSpecs);
+        	checkMaxObjectives();
     		targetConfigure(inSpecs);
     		parsingConfigure(inSpecs);
     	}
     	
         	// Due to metrics the columns at runtime are actually variable
-        return new DataTableSpec[]{null};
+        return null;
     }
 
-    	/**
+		private void checkDatasetSpecs(DataTableSpec[] inSpecs) throws InvalidSettingsException {
+			var datasetSpecs = inSpecs[GenericDinosKnimeWorkflow.PORT_INPUT_DATASET];
+			KnimeTableToDinosDataset.checkNoColumns(datasetSpecs, "" );
+			KnimeTableToDinosDataset.checkValidSpecs(datasetSpecs);
+			
+		}
+
+		/**
     	 * Helper function for automatically validating existing
     	 * values of the target class, and if not setting a value to it
     	 * 
@@ -255,32 +266,7 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     	
     		// If the node had a previous configuration, make sure the same target
     		// column is still present
-        String classifyColumn = target_class.getStringValue();
-        DataColumnSpec columnSpec = inSpec.getColumnSpec(classifyColumn);
-        boolean isValid = columnSpec != null;
-        boolean tryToFind = false;
-        
-        if(isValid) {
-	        for(int countType = 0 ; countType < types.length ; ++countType) {
-	    		Class<? extends DataValue> currentType = types[countType];
-	    	
-	    		if (columnSpec.getType().isCompatible(currentType) ) {
-	    			tryToFind = true;
-	    			break;
-	    		}
-	        }
-        }
-	
-        	// Target Column Configured but not found? Complain!
-        if (classifyColumn != null && (!isValid || !tryToFind) ) {
-            throw new InvalidSettingsException( workflow.EXCEPTION_CONFIGNOTFOUND_CLASS + classifyColumn);
-        }
-        
-        	// Target column not configured? Try to guess a suitable one based
-        	// on supported target columns
-        if (classifyColumn == null) {
-        	checkCompatibleValuesForModelAgainstColumns(inSpec, types, isValid, target_class, workflow.WARNING_GUESSING_TARGET);
-        }
+        tryToFindConfiguredColumn(target_class, inSpec, types, workflow.EXCEPTION_CONFIGNOTFOUND_CLASS, workflow.WARNING_GUESSING_TARGET, workflow.EXCEPTION_NOCLASS);
     	
     }
     
@@ -303,8 +289,45 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
 	    	// We have no use for empty description tables
     	checkNoColumns(input, workflow.EXCEPTION_NOCOLUMNS_PARSER);
     	
-    	tryToFindConfiguredColumn(desc_class, inSpec, datasetTypes, workflow.EXCEPTION_CONFIGNOTFOUND_PARSER, workflow.WARNING_GUESSING_PARSER);
+    		//
+    	tryToFindConfiguredColumn(desc_class, inSpec, datasetTypes, workflow.EXCEPTION_CONFIGNOTFOUND_PARSER, workflow.WARNING_GUESSING_PARSER, workflow.EXCEPTION_NODESC);
     }
+    
+	   	/**
+		 * Helper function for automatically validating
+		 * that there are no intersections in the exclude list
+		 * of the fixed columns and the targets
+		 * 
+		 * @param inSpecs
+		 * @throws InvalidSettingsException
+		 */
+	private void checkFixedNotInTargets(DataTableSpec[] inSpecs) throws InvalidSettingsException {
+
+		DataTableSpec input = inSpecs[workflow.PORT_INPUT_DATASET];
+		
+		var targets = targetToHashSet();
+		var fixed = getFixedList();
+		
+		var intersection = new HashSet<String>();
+		var missing = new HashSet<String>();
+		
+		for( String element : fixed ) {
+			if( targets.contains(element) )
+				intersection.add(element);
+			if( !input.containsName(element) ) {
+				missing.add(element);
+			}
+		}
+		
+		if(intersection.size() > 0) {
+			throw new InvalidSettingsException( workflow.EXCEPTION_FIXED_EQUALSCLASS + "(" + intersection.toString() + ")" );
+		}
+		
+		if(missing.size() > 0) {
+			throw new InvalidSettingsException( workflow.EXCEPTION_FIXED_NOTFOUND + "(" + missing.toString() + ")" );
+		}
+		
+	}
 
     		/**
     		 * Check that the (assumed to be) two given columns
@@ -334,7 +357,7 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     	 * 
     	 * @throws InvalidSettingsException
     	 */
-    protected void tryToFindConfiguredColumn(SettingsModelString model , final DataTableSpec inSpec, Class<? extends DataValue>[] types, String errorMessage, String assignMessage)
+    protected void tryToFindConfiguredColumn(SettingsModelString model , final DataTableSpec inSpec, Class<? extends DataValue>[] types, String errorMessage, String assignMessage, String unssoportedMessage)
     	throws InvalidSettingsException {
         String classifyColumn = model.getStringValue();
         DataColumnSpec columnSpec = inSpec.getColumnSpec(classifyColumn);
@@ -359,12 +382,12 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
         	// Target column not configured? Try to guess a suitable one based
         	// on supported target columns
         if (classifyColumn == null && assignMessage != null) {
-        	checkCompatibleValuesForModelAgainstColumns(inSpec, types, isValid, model, assignMessage);
+        	checkCompatibleValuesForModelAgainstColumns(inSpec, types, isValid, model, assignMessage, unssoportedMessage);
         }
     }
     
     	/**
-    	 * Helper function, check if a table spec has no column defined.
+    	 * Helper function, check if a table spec has no columns defined.
     	 * 
     	 * @param input
     	 * @param errorMessage
@@ -372,12 +395,11 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     	 */
     protected void checkNoColumns(DataTableSpec input, String errorMessage)
     	throws InvalidSettingsException {
-    	if (input.getNumColumns() == 0)
-    		throw new InvalidSettingsException(errorMessage);
+    	KnimeTableToDinosDataset.checkNoColumns(input, errorMessage);
     }
 
     	// TODO comment
-	private void checkCompatibleValuesForModelAgainstColumns(DataTableSpec inSpec, Class<? extends DataValue>[] types, boolean isValid, SettingsModelString model, String guessingMessage)
+	private void checkCompatibleValuesForModelAgainstColumns(DataTableSpec inSpec, Class<? extends DataValue>[] types, boolean isValid, SettingsModelString model, String guessingMessage, String unsoportedMessage)
 			throws InvalidSettingsException {
 		// auto-guessing, adapted from TreeLearner
             assert !isValid : workflow.EXCEPTION_NOCLASS_VALIDCONFIG;
@@ -401,15 +423,13 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
        
             }
             	// If no supported column was found, complain
-            if (target_class.getStringValue() == null) {
-            	StringBuilder builder = new StringBuilder();
-            	Class<? extends DataValue>[] acceptedTypes = workflow.getAceptedTargetTypes();
-            	for(int count = 0 ; count < acceptedTypes.length ; ++count) {
-            		builder.append( acceptedTypes[count].getSimpleName() );
-            	}
-                throw new InvalidSettingsException(workflow.EXCEPTION_NOCLASS + ", accepted: " + builder );
+            if (model.getStringValue() == null)
+            {
+            	StringBuilder builder = GenericDinosKnimeWorkflow.listOfClassTypesToString(types);
+                throw new InvalidSettingsException(unsoportedMessage + ", accepted: " + builder );
             }
 	}
+
 
     		/**
     		 * Check if the string column of the input spec have a list of values.
@@ -444,6 +464,12 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     		{ throw new InvalidSettingsException( "No value list found in domain for the columns: " + nonExistingSpecs.toString() + " (If you still want to use these column re-create the table with the \"Domain Calculator\" node with unrestricted number of possible values) " ); }
 		
 	}
+    
+    	// TODO Comment
+	private void checkMaxObjectives() throws InvalidSettingsException {
+		var objectives = (SettingsModelStringArray) classesConfig.get("objs") ;
+		workflow.checkMaxObjectives(objectives);
+	}
 
     	/** Interface for convenient and quick lambda operations on the SettingsTo Methods */
     private interface SettingsOps {
@@ -464,7 +490,7 @@ public abstract class GenericDinosKnimeModel extends NodeModel {
     protected SettingsModel[] getModelsExtractor() { return MODELS_EXTRACTOR; }
 
 		/** Store the specific components to store for Parsing mode */
-    private SettingsModel[] MODELS_PARSE = {target_class , desc_class };
+    private SettingsModel[] MODELS_PARSE = {target_class , desc_class , useDefaultOrNot , generalSettings};
     protected SettingsModel[] getModelsParse() { return MODELS_PARSE; }
     
 		/**

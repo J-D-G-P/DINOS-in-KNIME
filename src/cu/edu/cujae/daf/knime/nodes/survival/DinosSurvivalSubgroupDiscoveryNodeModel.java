@@ -72,7 +72,7 @@ public class DinosSurvivalSubgroupDiscoveryNodeModel extends GenericDinosKnimeMo
 	protected void targetConfigure(DataTableSpec[] inSpecs) throws InvalidSettingsException {
 		
 			// First, check the target value as in other modes
-		tryToFindConfiguredColumn(target_class, inSpecs[0], workflow.getAceptedTargetTypes(), workflow.EXCEPTION_CONFIGNOTFOUND_CLASS , workflow.WARNING_GUESSING_TARGET );
+		tryToFindConfiguredColumn(target_class, inSpecs[0], workflow.getAceptedTargetTypes(), workflow.EXCEPTION_CONFIGNOTFOUND_CLASS , workflow.WARNING_GUESSING_TARGET , workflow.EXCEPTION_NOCLASS);
 
 			// Check the Censor column, which cannot be
 			// the same as the target
@@ -146,7 +146,8 @@ public class DinosSurvivalSubgroupDiscoveryNodeModel extends GenericDinosKnimeMo
             }
             	// If no supported column was found, complain
             if (censor_column.getStringValue() == null) {
-                throw new InvalidSettingsException(workflow.EXCEPTION_NOCLASS);
+            	StringBuilder builder = GenericDinosKnimeWorkflow.listOfClassTypesToString(types);
+                throw new InvalidSettingsException(survivalWorkflow.EXCEPTION_NOCENSOR + ", accepted: " + builder );
             }
         }
 		
@@ -180,7 +181,7 @@ public class DinosSurvivalSubgroupDiscoveryNodeModel extends GenericDinosKnimeMo
 			
 				// Boolean
 			else if ( identifier.equals(workflow.ID_BOOL) )
-				{	censor_indication.setStringValue("FALSE");}
+				{	censor_indication.setStringValue(GenericDinosKnimeWorkflow.BOOL_FALSE_TEXT);}
 			
 				// String
 			else if ( identifier.equals(workflow.ID_STRING) )

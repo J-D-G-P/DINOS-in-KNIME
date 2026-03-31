@@ -1,6 +1,8 @@
 package cu.edu.cujae.daf.knime.dialogcomponents;
 
-	/**
+import org.knime.core.node.defaultnodesettings.SettingsModel;
+
+/**
 	 * Custom interface for declaring that a visual component
 	 * can be reset to a default value
 	 * 
@@ -26,4 +28,6 @@ public interface ReseatableDialogComponent{
 		 * @param value True to enable, False to Disable
 		 */
 	public void setEnabledOrDisabledComponents(boolean value);
+	
+	public SettingsModel getModel();
 }

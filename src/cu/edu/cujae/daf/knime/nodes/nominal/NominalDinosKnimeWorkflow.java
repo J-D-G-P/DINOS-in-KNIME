@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.knime.core.data.BooleanValue;
 import org.knime.core.data.DataCell;
 import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataColumnSpecCreator;
@@ -25,8 +26,10 @@ import org.knime.core.node.workflow.VariableType.IntType;
 import org.knime.core.node.workflow.VariableType.StringType;
 import org.knime.core.util.workflowsummary.WorkflowSummary.Workflow;
 
+import cu.edu.cujae.daf.codification.DiscreteProperty;
 import cu.edu.cujae.daf.codification.individual.Individual;
 import cu.edu.cujae.daf.context.dataset.Attribute;
+import cu.edu.cujae.daf.context.dataset.BooleanAttribute;
 import cu.edu.cujae.daf.context.dataset.Dataset;
 import cu.edu.cujae.daf.context.dataset.DiscClassDataset;
 import cu.edu.cujae.daf.core.Algorithm;
@@ -59,7 +62,7 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 	
 		// Variable to store the cells type supported by this as target
 		@SuppressWarnings("unchecked")
-	public static final Class<? extends DataValue>[] TARGETS_NOMINAL = new Class[] {NominalValue.class};
+	public static final Class<? extends DataValue>[] TARGETS_NOMINAL = new Class[] {StringValue.class, BooleanValue.class};
 
 		/** {@inheritDoc} */
 	@Override
@@ -153,17 +156,26 @@ public class NominalDinosKnimeWorkflow extends GenericDinosKnimeWorkflow {
 			/** {@inheritDoc} */
 		@Override
 		protected void addTargetSpecs(Dataset dataset, List<DataColumnSpec> outputSpecs) {
-			outputSpecs.add( new DataColumnSpecCreator( DEFAULT_PREDICTION + " (" + dataset.classAtt().name() + ")" , StringCell.TYPE).createSpec()
-					);
+			
+			var currentAttribute = dataset.classAtt();
+			var currentName = DEFAULT_PREDICTION + " (" + currentAttribute.name() + ")";
+			
+			addNominalSpec(outputSpecs, currentAttribute, currentName);
 		}
 		
 			/** {@inheritDoc} */
+		@SuppressWarnings("boxing")
 		@Override
 		protected void addPrediction(List<DataCell> cells, Individual currentSubgroup, Dataset dataset) {
-			if(currentSubgroup == null)
+			
+			if(currentSubgroup == null) 
 				super.addPrediction(cells, currentSubgroup, dataset);
-			else
-				cells.add( new StringCell( dataset.classAtt().value( currentSubgroup.mainClass().value().left().getOrElse(null) ) ) );
+			else {
+				Attribute attribute = dataset.classAtt();
+				var property = ( (DiscreteProperty) currentSubgroup.mainClass() );
+				double value = property.classIndex();
+				addNominalCell(cells, attribute, value);
+			}
 		}
 
 			/** {@inheritDoc} */

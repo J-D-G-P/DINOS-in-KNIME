@@ -18,6 +18,7 @@ import org.knime.core.node.defaultnodesettings.DialogComponentSeed;
 import org.knime.core.node.defaultnodesettings.SettingsModelBoolean;
 import org.knime.core.node.defaultnodesettings.SettingsModelFilterString;
 import org.knime.core.node.defaultnodesettings.SettingsModelString;
+import org.knime.core.node.defaultnodesettings.SettingsModelStringArray;
 
 import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentCheckBoxGroupReferenced;
 import cu.edu.cujae.daf.knime.dialogcomponents.DialogComponentCheckboxWithActionListener;
@@ -91,8 +92,9 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 	
     	/** Custom components for storing the configurations */
 	protected ReseatableDialogComponent[] components;
-	
-	final protected boolean initialDefaultOrNot =   workflow.createUseDefaultOrNot().getBooleanValue();
+
+		/** Position of objects in the componentes array */
+	private int objsPos;
 
 	
     	/** Constructor, it has been made as modular as possible to easily just extend and replace the necessary parts */
@@ -208,6 +210,9 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 		    		panel.createNewGroup( currentInfo._2() + " (" + currentInfo._1() + ")" );
 		    		ReseatableDialogComponent toAdd = components[count];
 		    		panel.addDialogComponent( (DialogComponent) toAdd );
+		    		
+		    		if( currentInfo._1() == "objs" )
+		    			objsPos = count;
 		    	}
 
 		    	setComponentsVisible(enabled);
@@ -222,11 +227,13 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 
 			panel.createNewTab( workflow.TAB_SETTINGS );
 			
-			addOverallConfigurationToSettingsTab(panel);
+			if( getMode() == DINOS_NODE.DISCOVERY )
+				addOverallConfigurationToSettingsTab(panel);
 			
 			addListConfigurationToSettingsTab(panel);
 			
 		}
+    	
 				/** This will add additional settings which are internally picked by for use by the class managing the algorithm, but not a specific component  */
     		protected void addOverallConfigurationToSettingsTab(GenericDinosKnimeDialog panel) {
 
@@ -236,7 +243,7 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
 				
 				addCollectIterationsToSettingsTab(panel);
 				
-				if( getMode() != DINOS_NODE.PARSER )
+				if( getMode() == DINOS_NODE.DISCOVERY )
 					addFixedVariablesToSettingsTab(panel);
 			}
 			
@@ -351,6 +358,11 @@ public abstract class GenericDinosKnimeDialog extends DefaultNodeSettingsPane {
             		if( filter.contains( className ) ) {
             			throw new InvalidSettingsException(workflow.EXCEPTION_FIXED_EQUALSCLASS + "(" + className + ")");
             		}
+            }
+            
+            if (type != DINOS_NODE.EXTRACTOR) {
+            	var objsModel = (SettingsModelStringArray) ( components[objsPos].getModel() );
+            	workflow.checkMaxObjectives( objsModel );
             }
             
         }
