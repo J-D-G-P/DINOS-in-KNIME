@@ -4,8 +4,8 @@ Bundle-Name: DINOS Subgroup Discovery Suite
 Bundle-SymbolicName: cu.edu.cujae.daf.codification.knime; singleton:=true
 Bundle-Version: 2.1.0
 Bundle-ClassPath: dinosnominalsubgroupdiscovery.jar,
- DAF.jar,
- classgraph.jar
+ lib/DAF.jar,
+ lib/classgraph.jar
 Bundle-Activator: cu.edu.cujae.daf.knime.DinosNodePlugin
 Bundle-Vendor: CUJAE, La Habana, Cuba
 Require-Bundle: org.eclipse.core.runtime,

@@ -10,7 +10,7 @@ import org.knime.core.node.NodeView;
  * As this example node does not have a view, this is just an empty stub of the 
  * NodeView class which not providing a real view pane.
  *
- * @author Jonathan David Gonz·lez Pereda
+ * @author Jonathan David Gonz√°lez Pereda
  */
 public class DinosSurvivalSubgroupDiscoveryNodeView extends NodeView<DinosSurvivalSubgroupDiscoveryNodeModel> {
 
