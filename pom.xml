@@ -1,0 +1,61 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>DINOS_KNIME</groupId>
+  <artifactId>DINOS_KNIME</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <description>Description example</description>
+  
+  <properties>
+	
+	<project.build.sourceEncoding>
+		UTF-8
+	</project.build.sourceEncoding>
+	
+  </properties>
+  
+  <build>
+    <sourceDirectory>src</sourceDirectory>
+    <resources>
+      <resource>
+        <directory>src</directory>
+        <excludes>
+          <exclude>**/*.java</exclude>
+        </excludes>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <release>17</release>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  
+  <dependencies>
+	
+  	<dependency>
+		
+  		<groupId>local</groupId>
+  		<artifactId>DAF</artifactId>
+  		<scope> system </scope>
+  		<version> 1.0 </version>
+  		<systemPath> ${project.basedir}\lib\DAF.jar  </systemPath>
+  		
+  	</dependency>
+  	
+  	 <dependency>
+		
+  		<groupId>local</groupId>
+  		<artifactId>classGraph</artifactId>
+  		<scope> system </scope>
+  		<version> 4.8.149 </version>
+  		<systemPath> ${project.basedir}\lib\classgraph.jar  </systemPath>
+  		
+  	</dependency>
+  	
+  </dependencies>
+  
+</project>
