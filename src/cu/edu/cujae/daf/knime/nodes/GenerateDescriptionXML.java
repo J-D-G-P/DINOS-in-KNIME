@@ -1,3 +1,4 @@
+/**
 package cu.edu.cujae.daf.knime.nodes;
 
 import cu.edu.cujae.daf.core.Algorithm;
@@ -454,3 +455,4 @@ public class GenerateDescriptionXML {
 		}
 	}
 }
+*/
