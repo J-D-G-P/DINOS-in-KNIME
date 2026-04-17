@@ -570,7 +570,8 @@ public class DinosRandomDatasetCreatorNodeModel extends NodeModel implements Add
 			throw new IllegalArgumentException("Unexpected target type for Dinos Random DatasetCreator: " + currentTarget );
 		}
 			
-		initialAttributes.addLast(toAdd);
+			// Add last, since it is an arrayList add is identical to add last
+		initialAttributes.add(toAdd);
 	}
 		
 
